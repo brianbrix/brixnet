@@ -190,16 +190,28 @@ switch ($action) {
         }
         
         if (_post('extend_selected')) {
+            // Validate CSRF token
+            $csrf_token = _post('csrf_token');
+            if (!Csrf::check($csrf_token)) {
+                r2(getUrl('server_uptime/manual-extend/' . $offline_id), 'e', 'Invalid request');
+            }
+            
             // Process manual extension for selected customers
             _log('Form submitted. Raw POST data: ' . json_encode($_POST), 'Debug', 0);
             
-            $selected_customers = _post('selected_customers');
+            // Get selected customers from POST (handle array properly)
+            $selected_customers = isset($_POST['selected_customers']) && is_array($_POST['selected_customers']) 
+                ? $_POST['selected_customers'] 
+                : [];
+            
+            // Sanitize the array values
+            $selected_customers = array_map('intval', $selected_customers);
             
             // Debug logging
             _log('Manual extend form submitted. Selected: ' . json_encode($selected_customers), 'Debug', 0);
-            _log('Selected type: ' . gettype($selected_customers) . ', empty: ' . (empty($selected_customers) ? 'true' : 'false'), 'Debug', 0);
+            _log('Selected type: ' . gettype($selected_customers) . ', count: ' . count($selected_customers), 'Debug', 0);
             
-            if (empty($selected_customers) || !is_array($selected_customers)) {
+            if (empty($selected_customers)) {
                 r2(getUrl('server_uptime/manual-extend/' . $offline_id), 'e', 'No customers selected');
             }
             
@@ -283,10 +295,16 @@ switch ($action) {
             r2(getUrl('server_uptime/offline-period/' . $offline_id), 's', $msg);
         }
         
-        // Get all active customers with their plans
+        // Get all customers who were active during the offline period
+        // This includes customers whose plans were still valid when the server came back online
+        // Convert came_online to date for comparison
+        $came_online_datetime = strtotime($period['came_online']);
+        $came_online_date = date('Y-m-d', $came_online_datetime);
+        $came_online_time = date('H:i:s', $came_online_datetime);
+        
         $active_plans = ORM::for_table('tbl_user_recharges')
             ->where('status', 'on')
-            ->where_gt('expiration', date('Y-m-d'))
+            ->where_raw('CONCAT(expiration, \' \', time) >= ?', [$period['came_online']])
             ->order_by_asc('customer_id')
             ->find_many();
         
@@ -318,6 +336,8 @@ switch ($action) {
         
         $ui->assign('period', $period->as_array());
         $ui->assign('customers', $customers);
+        $csrf_token = Csrf::generateAndStoreToken();
+        $ui->assign('csrf_token', $csrf_token);
         $ui->display('admin/server_uptime/manual_extend.tpl');
         break;
 }

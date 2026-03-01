@@ -28,6 +28,7 @@
                     </div>
                 {else}
                     <form method="post" action="{Text::url('server_uptime/manual-extend')}/{$period['id']}" id="extendForm">
+                        <input type="hidden" name="csrf_token" value="{$csrf_token}">
                         <div class="table-responsive">
                             <table class="table table-bordered table-striped">
                                 <thead>
@@ -172,17 +173,14 @@ function handleExtendSubmit(event) {
         console.log('Step 6: Added extend_selected hidden input');
         
         // Log what we're about to submit
-        var formData = new FormData(form);
-        console.log('Step 7: Final FormData to submit:');
-        var dataCount = 0;
-        for (var pair of formData.entries()) {
-            console.log('  ' + pair[0] + ': ' + pair[1]);
-            if (pair[0] === 'selected_customers[]') dataCount++;
-        }
-        console.log('Step 8: Total selected_customers[] entries: ' + dataCount);
+        console.log('Step 7: Final submission will include ' + checked.length + ' customers');
+        console.log('Step 8: Customer IDs being submitted:');
+        checked.forEach(function(checkbox) {
+            console.log('  Customer recharge ID: ' + checkbox.value);
+        });
         
         // Alert for verification
-        alert('Ready to submit with ' + dataCount + ' customers. Check console for details.');
+        alert('Ready to submit with ' + checked.length + ' customer(s). Check console for details.');
         
         // Submit form
         console.log('Step 9: Submitting form to: ' + form.action);

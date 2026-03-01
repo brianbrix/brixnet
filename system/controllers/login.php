@@ -83,6 +83,9 @@ switch ($do) {
                 if ($tur['status'] == 'off') {
                     _alert(Lang::T('Internet Voucher Expired'), 'danger', "login");
                 }
+                if ($tur['is_paused']) {
+                    _alert(Lang::T('Your plan is currently paused') . ($tur['pause_reason'] ? '. Reason: ' . $tur['pause_reason'] : ''), 'danger', "login");
+                }
                 $p = ORM::for_table('tbl_plans')->where('id', $tur['plan_id'])->find_one();
                 if ($p) {
                     $dvc = Package::getDevice($p);

@@ -304,6 +304,113 @@ switch ($action) {
         }
         r2(getUrl('customers/view/') . $id_customer, 'e', 'Cannot find active plan');
         break;
+    case 'pause-plan':
+        if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
+            _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
+        }
+        $id_customer = $routes['2'];
+        $recharge_id = $routes['3'];
+        $csrf_token = _req('token');
+        if (!Csrf::check($csrf_token)) {
+            r2(getUrl('customers/view/') . $id_customer, 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
+        $recharge = ORM::for_table('tbl_user_recharges')->find_one($recharge_id);
+        if ($recharge && $recharge['customer_id'] == $id_customer) {
+            if ($recharge['status'] != 'on') {
+                r2(getUrl('customers/view/') . $id_customer, 'e', 'Plan is not active');
+            }
+            
+            if ($recharge['is_paused']) {
+                r2(getUrl('customers/view/') . $id_customer, 'e', 'Plan is already paused');
+            }
+            
+            $reason = _post('pause_reason') ?: '';
+            
+            // Pause the plan
+            $recharge->is_paused = 1;
+            $recharge->paused_on = date('Y-m-d H:i:s');
+            $recharge->paused_by_admin_id = $admin['id'];
+            $recharge->pause_reason = $reason;
+            $recharge->save();
+            
+            // Log pause action
+            $log_record = ORM::for_table('tbl_plan_pause_history')->create();
+            $log_record->recharge_id = $recharge_id;
+            $log_record->customer_id = $id_customer;
+            $log_record->action = 'pause';
+            $log_record->admin_id = $admin['id'];
+            $log_record->reason = $reason;
+            $log_record->ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $log_record->notes = 'Plan paused by admin ' . $admin['username'];
+            $log_record->save();
+            
+            _log('Admin ' . $admin['username'] . ' paused plan ' . $recharge['namebp'] . ' for customer ' . $recharge['username'], 'PausePlan', $id_customer);
+            
+            // Notify customer
+            Message::addToInbox(
+                $id_customer,
+                'Plan Paused',
+                'Your internet plan "' . $recharge['namebp'] . '" has been paused.' .
+                ($reason ? "\nReason: " . $reason : '') .
+                "\n\nYou will not be able to access the internet until the plan is resumed."
+            );
+            
+            r2(getUrl('customers/view/') . $id_customer, 's', 'Plan paused successfully');
+        }
+        r2(getUrl('customers/view/') . $id_customer, 'e', 'Cannot find plan');
+        break;
+    case 'resume-plan':
+        if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
+            _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
+        }
+        $id_customer = $routes['2'];
+        $recharge_id = $routes['3'];
+        $csrf_token = _req('token');
+        if (!Csrf::check($csrf_token)) {
+            r2(getUrl('customers/view/') . $id_customer, 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
+        $recharge = ORM::for_table('tbl_user_recharges')->find_one($recharge_id);
+        if ($recharge && $recharge['customer_id'] == $id_customer) {
+            if ($recharge['status'] != 'on') {
+                r2(getUrl('customers/view/') . $id_customer, 'e', 'Plan is not active');
+            }
+            
+            if (!$recharge['is_paused']) {
+                r2(getUrl('customers/view/') . $id_customer, 'e', 'Plan is not paused');
+            }
+            
+            // Resume the plan
+            $recharge->is_paused = 0;
+            $recharge->paused_on = NULL;
+            $recharge->paused_by_admin_id = NULL;
+            $recharge->pause_reason = NULL;
+            $recharge->save();
+            
+            // Log resume action
+            $log_record = ORM::for_table('tbl_plan_pause_history')->create();
+            $log_record->recharge_id = $recharge_id;
+            $log_record->customer_id = $id_customer;
+            $log_record->action = 'resume';
+            $log_record->admin_id = $admin['id'];
+            $log_record->reason = 'Resumed by admin';
+            $log_record->ip_address = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+            $log_record->notes = 'Plan resumed by admin ' . $admin['username'];
+            $log_record->save();
+            
+            _log('Admin ' . $admin['username'] . ' resumed plan ' . $recharge['namebp'] . ' for customer ' . $recharge['username'], 'ResumePlan', $id_customer);
+            
+            // Notify customer
+            Message::addToInbox(
+                $id_customer,
+                'Plan Resumed',
+                'Your internet plan "' . $recharge['namebp'] . '" has been resumed.' .
+                "\n\nYou can now access the internet again."
+            );
+            
+            r2(getUrl('customers/view/') . $id_customer, 's', 'Plan resumed successfully');
+        }
+        r2(getUrl('customers/view/') . $id_customer, 'e', 'Cannot find plan');
+        break;
     case 'login':
         if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
             _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");

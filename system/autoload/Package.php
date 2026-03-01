@@ -195,8 +195,8 @@ class Package
         if ($b) {
             $lastExpired = Lang::dateAndTimeFormat($b['expiration'], $b['time']);
             $isChangePlan = false;
-            if ($b['namebp'] == $p['name_plan'] && $b['status'] == 'on' && $config['extend_expiry'] == 'yes') {
-                // if it same internet plan, expired will extend
+            if ($b['namebp'] == $p['name_plan'] && $b['status'] == 'on' && !$b['is_paused'] && $config['extend_expiry'] == 'yes') {
+                // if it same internet plan, expired will extend (and not paused)
                 switch ($p['validity_unit']) {
                     case 'Months':
                         $date_exp = date("Y-m-d", strtotime($b['expiration'] . ' +' . $p['validity'] . ' months'));

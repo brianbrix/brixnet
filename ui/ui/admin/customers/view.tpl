@@ -241,12 +241,27 @@
                             </li>
                         </ul>
                         <div class="row">
-                            <div class="col-xs-4">
+                            <div class="col-xs-3">
                                 <a href="{Text::url('customers/deactivate/', $d['id'],'/',$package['plan_id'], '&token=', $csrf_token)}"
                                     id="{$d['id']}" class="btn btn-danger btn-block btn-sm"
                                     onclick="return ask(this, '{Lang::T('This will deactivate Customer Plan, and make it expired')}')">{Lang::T('Deactivate')}</a>
                             </div>
-                            <div class="col-xs-8">
+                            {if $package['status'] == 'on'}
+                                {if !$package['is_paused']}
+                                    <div class="col-xs-3">
+                                        <button type="button" class="btn btn-warning btn-block btn-sm" onclick="pausePlanModal('{$d['id']}', '{$package['id']}', '{$package['namebp']}')">
+                                            <i class="fa fa-pause"></i> {Lang::T('Pause')}
+                                        </button>
+                                    </div>
+                                {else}
+                                    <div class="col-xs-3">
+                                        <a href="{Text::url('customers/resume-plan/', $d['id'],'/',$package['id'], '&token=', $csrf_token)}"
+                                            class="btn btn-info btn-block btn-sm"
+                                            onclick="return ask(this, '{Lang::T('This will resume the paused plan')}')">{Lang::T('Resume')}</a>
+                                    </div>
+                                {/if}
+                            {/if}
+                            <div class="col-xs-6">
                                 <a href="{Text::url('customers/recharge/', $d['id'], '/', $package['plan_id'], '&token=', $csrf_token)}"
                                     class="btn btn-success btn-sm btn-block">{Lang::T('Recharge')}</a>
                             </div>
@@ -300,4 +315,48 @@
         </script>
     {/literal}
 {/if}
+
+<!-- Pause Plan Modal -->
+<div class="modal fade" id="pausePlanModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">{Lang::T('Pause Plan')}</h4>
+            </div>
+            <form id="pausePlanForm" method="post">
+                <div class="modal-body">
+                    <p>You are about to pause the plan: <strong id="pausePlanName"></strong></p>
+                    <p>The customer will not be able to access the internet until the plan is resumed.</p>
+                    
+                    <div class="form-group">
+                        <label for="pauseReason">{Lang::T('Reason for Pause')} (optional)</label>
+                        <textarea class="form-control" id="pauseReason" name="pause_reason" rows="3" placeholder="e.g., Payment pending, Request from customer, etc."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{Lang::T('Cancel')}</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fa fa-pause"></i> {Lang::T('Pause Plan')}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function pausePlanModal(customerId, rechargeId, planName) {
+    document.getElementById('pausePlanName').textContent = planName;
+    document.getElementById('pauseReason').value = '';
+    
+    var form = document.getElementById('pausePlanForm');
+    form.action = "{Text::url('customers/pause-plan')}/" + customerId + "/" + rechargeId + "&token={$csrf_token}";
+    
+    $('#pausePlanModal').modal('show');
+}
+</script>
+
 {include file="sections/footer.tpl"}
