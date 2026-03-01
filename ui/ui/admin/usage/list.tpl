@@ -7,7 +7,7 @@
             {if $sample_record}
                 <hr style="margin: 10px 0;">
                 <strong>Sample Record from table:</strong><br>
-                {foreach from=$sample_record key=col value=val}
+                {foreach from=$sample_record key=col item=val}
                     <span style="margin-right: 20px;"><code>{$col}</code>: {$val|default:'-'}</span>
                 {/foreach}
             {else}
