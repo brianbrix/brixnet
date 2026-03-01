@@ -37,6 +37,7 @@ switch ($action) {
         
         // Get sample record for debugging
         $sample_record = null;
+        $table_count = 0;
         try {
             $sample = ORM::for_table($tableInfo['table'], $tableInfo['connection'])
                 ->limit(1)
@@ -44,7 +45,16 @@ switch ($action) {
             if (!empty($sample)) {
                 $sample_record = (array)$sample[0];
             }
+            $table_count = ORM::for_table($tableInfo['table'], $tableInfo['connection'])->count();
         } catch (Exception $e) {
+            $table_count = -1;
+        }
+        
+        // Test query for first customer
+        $test_usage = null;
+        $first_customer = ORM::for_table('tbl_customers')->order_by_asc('id')->find_one();
+        if ($first_customer) {
+            $test_usage = Usage::getCustomerUsage($first_customer['id'], $date_from, $date_to);
         }
         
         $customers_query = ORM::for_table('tbl_customers')
@@ -91,6 +101,9 @@ switch ($action) {
         $ui->assign('search', $search);
         $ui->assign('table_info', $tableInfo);
         $ui->assign('sample_record', $sample_record);
+        $ui->assign('table_count', $table_count);
+        $ui->assign('test_usage', $test_usage);
+        $ui->assign('test_customer', $first_customer);
         $ui->assign('csrf_token', Csrf::generateAndStoreToken());
         $ui->display('admin/usage/list.tpl');
         break;

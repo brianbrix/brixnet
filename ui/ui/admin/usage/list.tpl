@@ -2,14 +2,54 @@
 
 <div class="row">
     <div class="col-md-12">
-        <div class="alert alert-info">
-            <strong>Debug Info:</strong> Using table: <code>{$table_info.table}</code> | Columns: <code>{$table_info.input_column}</code>, <code>{$table_info.output_column}</code> | Date: <code>{$table_info.date_column}</code>
+        <div class="alert alert-warning">
+            <h4>Debug Information</h4>
+            <table class="table table-condensed">
+                <tr>
+                    <td><strong>Table:</strong></td>
+                    <td><code>{$table_info.table}</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Connection:</strong></td>
+                    <td><code>{$table_info.connection|default:'default'}</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Input Column:</strong></td>
+                    <td><code>{$table_info.input_column}</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Output Column:</strong></td>
+                    <td><code>{$table_info.output_column}</code></td>
+                </tr>
+                <tr>
+                    <td><strong>Date Column:</strong></td>
+                    <td><code>{$table_info.date_column}</code></td>
+                </tr>
+                <tr style="background-color: #ffffcc;">
+                    <td><strong>Total Records in Table:</strong></td>
+                    <td><strong>{$table_count}</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>Date Range:</strong></td>
+                    <td>{$date_from} to {$date_to}</td>
+                </tr>
+                {if $test_customer}
+                <tr style="background-color: #ffffcc;">
+                    <td><strong>Test Customer:</strong></td>
+                    <td>{$test_customer.username} - {$test_customer.fullname}</td>
+                </tr>
+                {/if}
+                {if $test_usage}
+                <tr style="background-color: #ffffcc;">
+                    <td><strong>Test Usage (Sample):</strong></td>
+                    <td>In: {$test_usage.data_in|default:'0'} bytes | Out: {$test_usage.data_out|default:'0'} bytes | Total: {Usage::formatBytes($test_usage.data_total)}</td>
+                </tr>
+                {/if}
+            </table>
             {if $sample_record}
                 <hr style="margin: 10px 0;">
-                <strong>Sample Record from table:</strong><br>
-                {foreach from=$sample_record key=col item=val}
-                    <span style="margin-right: 20px;"><code>{$col}</code>: {$val|default:'-'}</span>
-                {/foreach}
+                <strong>Sample Record Columns:</strong><br>
+                <pre style="background: #f5f5f5; padding: 10px; overflow-x: auto;">{foreach from=$sample_record key=col item=val}{$col}: {$val|default:'-'}{"\n"}{/foreach}</pre>
             {else}
                 <hr style="margin: 10px 0;">
                 <strong style="color: red;">No data found in accounting table!</strong>
