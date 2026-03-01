@@ -23,10 +23,11 @@ class Usage
             return;
         }
 
-        // Try FreeRADIUS radacct table first (with radius DB connection)
+        // FreeRADIUS is the primary system - check radacct table first
         try {
-            $result = ORM::for_table('radacct', 'radius')->limit(1)->find_many();
-            if (!empty($result)) {
+            // Force a query to test if radacct exists in radius DB
+            $count = ORM::for_table('radacct', 'radius')->count();
+            if ($count >= 0) {
                 self::$table_name = 'radacct';
                 self::$db_connection = 'radius';
                 self::$input_column = 'acctinputoctets';
@@ -35,13 +36,13 @@ class Usage
                 return;
             }
         } catch (Exception $e) {
-            // FreeRADIUS not available
+            // FreeRADIUS radacct not available
         }
 
-        // Try RadiusRest rad_acct table  
+        // Fall back to RadiusRest rad_acct table
         try {
-            $result = ORM::for_table('rad_acct')->limit(1)->find_many();
-            if (!empty($result)) {
+            $count = ORM::for_table('rad_acct')->count();
+            if ($count >= 0) {
                 self::$table_name = 'rad_acct';
                 self::$db_connection = null;
                 self::$input_column = 'acctInputOctets';
@@ -53,12 +54,27 @@ class Usage
             // RadiusRest not available
         }
 
-        // Default to RadiusRest if nothing found (most likely scenario)
-        self::$table_name = 'rad_acct';
-        self::$db_connection = null;
-        self::$input_column = 'acctInputOctets';
-        self::$output_column = 'acctOutputOctets';
-        self::$date_column = 'dateAdded';
+        // Default to FreeRADIUS if all else fails
+        self::$table_name = 'radacct';
+        self::$db_connection = 'radius';
+        self::$input_column = 'acctinputoctets';
+        self::$output_column = 'acctoutputoctets';
+        self::$date_column = 'acctstarttime';
+    }
+
+    /**
+     * Get diagnostic info about which table is being used
+     */
+    public static function getTableInfo()
+    {
+        self::initializeTable();
+        return [
+            'table' => self::$table_name,
+            'connection' => self::$db_connection,
+            'input_column' => self::$input_column,
+            'output_column' => self::$output_column,
+            'date_column' => self::$date_column
+        ];
     }
 
     /**
@@ -78,8 +94,8 @@ class Usage
             $table_obj = ORM::for_table(self::$table_name, self::$db_connection);
             $query = $table_obj
                 ->where('username', $customer['username'])
-                ->where_gte('DATE(' . self::$date_column . ')', $date_from)
-                ->where_lte('DATE(' . self::$date_column . ')', $date_to)
+                ->where_raw('DATE(' . self::$date_column . ') >= ?', [$date_from])
+                ->where_raw('DATE(' . self::$date_column . ') <= ?', [$date_to])
                 ->select_raw('SUM(' . self::$input_column . ') as total_in')
                 ->select_raw('SUM(' . self::$output_column . ') as total_out')
                 ->select_raw('COUNT(*) as total_sessions')
@@ -123,8 +139,8 @@ class Usage
                 ->select_raw('SUM(' . self::$input_column . ') + SUM(' . self::$output_column . ') as total_bytes')
                 ->select_raw('COUNT(*) as sessions')
                 ->where('username', $customer['username'])
-                ->where_gte('DATE(' . self::$date_column . ')', $date_from)
-                ->where_lte('DATE(' . self::$date_column . ')', $date_to)
+                ->where_raw('DATE(' . self::$date_column . ') >= ?', [$date_from])
+                ->where_raw('DATE(' . self::$date_column . ') <= ?', [$date_to])
                 ->group_by_expr('DATE(' . self::$date_column . ')')
                 ->order_by_desc('date')
                 ->find_many();
@@ -168,8 +184,7 @@ class Usage
                 ->select_raw('SUM(' . self::$output_column . ') as data_out')
                 ->select_raw('COUNT(*) as sessions')
                 ->where('username', $customer['username'])
-                ->where_gte('DATE(' . self::$date_column . ')', $date)
-                ->where_lte('DATE(' . self::$date_column . ')', $date)
+                ->where_raw('DATE(' . self::$date_column . ') = ?', [$date])
                 ->group_by_expr('HOUR(' . self::$date_column . ')')
                 ->order_by_asc('hour')
                 ->find_many();
@@ -246,8 +261,8 @@ class Usage
                 ->select_raw('SUM(' . self::$input_column . ') as data_in')
                 ->select_raw('SUM(' . self::$output_column . ') as data_out')
                 ->select_raw('SUM(' . self::$input_column . ') + SUM(' . self::$output_column . ') as total_bytes')
-                ->where_gte('DATE(' . self::$date_column . ')', $date_from)
-                ->where_lte('DATE(' . self::$date_column . ')', $date_to)
+                ->where_raw('DATE(' . self::$date_column . ') >= ?', [$date_from])
+                ->where_raw('DATE(' . self::$date_column . ') <= ?', [$date_to])
                 ->group_by('username')
                 ->order_by_desc('total_bytes')
                 ->limit($limit)

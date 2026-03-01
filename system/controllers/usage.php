@@ -33,6 +33,20 @@ switch ($action) {
         }
         
         // Get all customers
+        $tableInfo = Usage::getTableInfo();
+        
+        // Get sample record for debugging
+        $sample_record = null;
+        try {
+            $sample = ORM::for_table($tableInfo['table'], $tableInfo['connection'])
+                ->limit(1)
+                ->find_many();
+            if (!empty($sample)) {
+                $sample_record = (array)$sample[0];
+            }
+        } catch (Exception $e) {
+        }
+        
         $customers_query = ORM::for_table('tbl_customers')
             ->select('tbl_customers.id', 'id')
             ->select('tbl_customers.username', 'username')
@@ -75,6 +89,8 @@ switch ($action) {
         $ui->assign('date_from', $date_from);
         $ui->assign('date_to', $date_to);
         $ui->assign('search', $search);
+        $ui->assign('table_info', $tableInfo);
+        $ui->assign('sample_record', $sample_record);
         $ui->assign('csrf_token', Csrf::generateAndStoreToken());
         $ui->display('admin/usage/list.tpl');
         break;

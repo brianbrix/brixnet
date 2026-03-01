@@ -2,6 +2,24 @@
 
 <div class="row">
     <div class="col-md-12">
+        <div class="alert alert-info">
+            <strong>Debug Info:</strong> Using table: <code>{$table_info.table}</code> | Columns: <code>{$table_info.input_column}</code>, <code>{$table_info.output_column}</code> | Date: <code>{$table_info.date_column}</code>
+            {if $sample_record}
+                <hr style="margin: 10px 0;">
+                <strong>Sample Record from table:</strong><br>
+                {foreach from=$sample_record key=col value=val}
+                    <span style="margin-right: 20px;"><code>{$col}</code>: {$val|default:'-'}</span>
+                {/foreach}
+            {else}
+                <hr style="margin: 10px 0;">
+                <strong style="color: red;">No data found in accounting table!</strong>
+            {/if}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
         <div class="box box-primary">
             <div class="box-header with-border">
                 <h3 class="box-title">
