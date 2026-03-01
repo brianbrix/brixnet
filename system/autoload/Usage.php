@@ -33,31 +33,28 @@ class Usage
         }
         
         try {
-            // Simple raw query
-            $result = ORM::raw_query(
-                "SELECT 
-                    COALESCE(SUM(acctinputoctets), 0) as total_in,
-                    COALESCE(SUM(acctoutputoctets), 0) as total_out,
-                    COUNT(*) as total_sessions
-                FROM radacct 
-                WHERE username = ? 
-                AND acctstarttime >= ? 
-                AND acctstarttime <= ?",
-                [$customer['username'], $date_from . ' 00:00:00', $date_to . ' 23:59:59']
-            )->find_one();
+            // Use ORM query builder
+            $query = ORM::for_table('radacct')
+                ->select_expr('COALESCE(SUM(acctinputoctets), 0)', 'total_in')
+                ->select_expr('COALESCE(SUM(acctoutputoctets), 0)', 'total_out')
+                ->select_expr('COUNT(*)', 'total_sessions')
+                ->where('username', $customer['username'])
+                ->where_gte('acctstarttime', $date_from . ' 00:00:00')
+                ->where_lte('acctstarttime', $date_to . ' 23:59:59')
+                ->find_one();
             
-            if (!$result) {
+            if (!$query) {
                 return ['data_in' => 0, 'data_out' => 0, 'data_total' => 0, 'sessions' => 0];
             }
             
-            $data_in = $result['total_in'] ?? 0;
-            $data_out = $result['total_out'] ?? 0;
+            $data_in = $query['total_in'] ?? 0;
+            $data_out = $query['total_out'] ?? 0;
             
             return [
                 'data_in' => (int)$data_in,
                 'data_out' => (int)$data_out,
                 'data_total' => (int)$data_in + (int)$data_out,
-                'sessions' => $result['total_sessions'] ?? 0
+                'sessions' => $query['total_sessions'] ?? 0
             ];
         } catch (Exception $e) {
             return ['data_in' => 0, 'data_out' => 0, 'data_total' => 0, 'sessions' => 0];
@@ -75,21 +72,18 @@ class Usage
         }
         
         try {
-            $daily = ORM::raw_query(
-                "SELECT 
-                    DATE(acctstarttime) as date,
-                    COALESCE(SUM(acctinputoctets), 0) as data_in,
-                    COALESCE(SUM(acctoutputoctets), 0) as data_out,
-                    COALESCE(SUM(acctinputoctets), 0) + COALESCE(SUM(acctoutputoctets), 0) as total_bytes,
-                    COUNT(*) as sessions
-                FROM radacct 
-                WHERE username = ? 
-                AND acctstarttime >= ? 
-                AND acctstarttime <= ?
-                GROUP BY DATE(acctstarttime)
-                ORDER BY date DESC",
-                [$customer['username'], $date_from . ' 00:00:00', $date_to . ' 23:59:59']
-            )->find_many();
+            $daily = ORM::for_table('radacct')
+                ->select_expr('DATE(acctstarttime)', 'date')
+                ->select_expr('COALESCE(SUM(acctinputoctets), 0)', 'data_in')
+                ->select_expr('COALESCE(SUM(acctoutputoctets), 0)', 'data_out')
+                ->select_expr('COALESCE(SUM(acctinputoctets), 0) + COALESCE(SUM(acctoutputoctets), 0)', 'total_bytes')
+                ->select_expr('COUNT(*)', 'sessions')
+                ->where('username', $customer['username'])
+                ->where_gte('acctstarttime', $date_from . ' 00:00:00')
+                ->where_lte('acctstarttime', $date_to . ' 23:59:59')
+                ->group_by_expr('DATE(acctstarttime)')
+                ->order_by_desc('date')
+                ->find_many();
             
             $result = [];
             foreach ($daily as $row) {
@@ -123,10 +117,10 @@ class Usage
         
         try {
             $hourly = ORM::for_table('radacct')
-                ->select_raw('HOUR(acctstarttime) as hour')
-                ->select_raw('SUM(acctinputoctets) as data_in')
-                ->select_raw('SUM(acctoutputoctets) as data_out')
-                ->select_raw('COUNT(*) as sessions')
+                ->select_expr('HOUR(acctstarttime)', 'hour')
+                ->select_expr('SUM(acctinputoctets)', 'data_in')
+                ->select_expr('SUM(acctoutputoctets)', 'data_out')
+                ->select_expr('COUNT(*)', 'sessions')
                 ->where('username', $customer['username'])
                 ->where_raw('DATE(acctstarttime) = ?', [$date])
                 ->group_by_expr('HOUR(acctstarttime)')
@@ -138,11 +132,13 @@ class Usage
                 $found = false;
                 foreach ($hourly as $row) {
                     if ((int)$row['hour'] == $i) {
+                        $data_in = (int)($row['data_in'] ?? 0);
+                        $data_out = (int)($row['data_out'] ?? 0);
                         $result[] = [
                             'hour' => str_pad($i, 2, '0', STR_PAD_LEFT) . ':00',
-                            'data_in' => (int)$row['data_in'],
-                            'data_out' => (int)$row['data_out'],
-                            'total' => (int)$row['data_in'] + (int)$row['data_out'],
+                            'data_in' => $data_in,
+                            'data_out' => $data_out,
+                            'total' => $data_in + $data_out,
                             'sessions' => $row['sessions']
                         ];
                         $found = true;
@@ -199,12 +195,12 @@ class Usage
     {
         try {
             $customers = ORM::for_table('radacct')
-                ->select_raw('username')
-                ->select_raw('SUM(acctinputoctets) as data_in')
-                ->select_raw('SUM(acctoutputoctets) as data_out')
-                ->select_raw('SUM(acctinputoctets) + SUM(acctoutputoctets) as total_bytes')
-                ->where_raw('DATE(acctstarttime) >= ?', [$date_from])
-                ->where_raw('DATE(acctstarttime) <= ?', [$date_to])
+                ->select('username')
+                ->select_expr('SUM(acctinputoctets)', 'data_in')
+                ->select_expr('SUM(acctoutputoctets)', 'data_out')
+                ->select_expr('SUM(acctinputoctets) + SUM(acctoutputoctets)', 'total_bytes')
+                ->where_gte('acctstarttime', $date_from . ' 00:00:00')
+                ->where_lte('acctstarttime', $date_to . ' 23:59:59')
                 ->group_by('username')
                 ->order_by_desc('total_bytes')
                 ->limit($limit)
