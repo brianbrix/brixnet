@@ -221,6 +221,8 @@
                                     href="{Text::url('reports')}">{Lang::T('Daily Reports')}</a></li>
                             <li {if $_routes[1] eq 'activation' }class="active" {/if}><a
                                     href="{Text::url('reports/activation')}">{Lang::T('Activation History')}</a></li>
+                            <li {if $_system_menu eq 'usage'}class="active" {/if}><a
+                                    href="{Text::url('usage')}">{Lang::T('Usage Analytics')}</a></li>
                             {$_MENU_REPORTS}
                         </ul>
                     </li>
