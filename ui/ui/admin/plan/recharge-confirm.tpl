@@ -51,9 +51,20 @@
                                 class="pull-right">{if $using eq 'zero'}{Lang::moneyFormat(0)}{else}{Lang::moneyFormat($plan['price'])}{/if}</span>
                         </li>
                         <li class="list-group-item">
-                            <b>{Lang::T('Plan Validity')}</b> <span class="pull-right">{$plan['validity']}
-                                {$plan['validity_unit']}</span>
+                            <b>{Lang::T('Plan Validity')}</b> <span class="pull-right">
+                                {if $quantity && $quantity > 1}
+                                    {$plan['validity'] * $quantity} {$plan['validity_unit']} 
+                                    <small class="text-muted">({$plan['validity']} × {$quantity})</small>
+                                {else}
+                                    {$plan['validity']} {$plan['validity_unit']}
+                                {/if}
+                            </span>
                         </li>
+                        {if $quantity && $quantity > 1}
+                        <li class="list-group-item">
+                            <b>{Lang::T('Quantity')}</b> <span class="pull-right">{$quantity}x</span>
+                        </li>
+                        {/if}
                         <li class="list-group-item">
                             <b>{Lang::T('Payment via')}</b> <span class="pull-right">
                                 <select name="using"
@@ -113,14 +124,14 @@
                                 </li>
                                 <li class="list-group-item">
                                     <b>{Lang::T('Total')}</b> <small>({Lang::T('Plan Price')}
-                                        +{Lang::T('Additional Cost')})</small><span class="pull-right"
-                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{Lang::moneyFormat($plan['price']+$add_cost+$tax)}</span>
+                                        +{Lang::T('Additional Cost')}){if $quantity && $quantity > 1} × {$quantity}{/if}</small><span class="pull-right"
+                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{Lang::moneyFormat(($plan['price']+$add_cost+$tax) * (($quantity)?$quantity:1))}</span>
                                 </li>
                             {else}
                                 <li class="list-group-item">
-                                    <b>{Lang::T('Total')}</b> <small>({Lang::T('Plan Price')} + {Lang::T('Tax')})</small><span
+                                    <b>{Lang::T('Total')}</b> <small>({Lang::T('Plan Price')} + {Lang::T('Tax')}){if $quantity && $quantity > 1} × {$quantity}{/if}</small><span
                                         class="pull-right"
-                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{if $using eq 'zero'}{Lang::moneyFormat(0)}{else}{Lang::moneyFormat($plan['price']+$tax)}{/if}</span>
+                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{if $using eq 'zero'}{Lang::moneyFormat(0)}{else}{Lang::moneyFormat(($plan['price']+$tax) * (($quantity)?$quantity:1))}{/if}</span>
                                 </li>
                             {/if}
                         {else}
@@ -157,13 +168,13 @@
                                 </li>
                                 <li class="list-group-item">
                                     <b>{Lang::T('Total')}</b> <small>({Lang::T('Plan Price')}
-                                        +{Lang::T('Additional Cost')})</small><span class="pull-right"
-                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{Lang::moneyFormat($plan['price']+$add_cost)}</span>
+                                        +{Lang::T('Additional Cost')}){if $quantity && $quantity > 1} × {$quantity}{/if}</small><span class="pull-right"
+                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{Lang::moneyFormat(($plan['price']+$add_cost) * (($quantity)?$quantity:1))}</span>
                                 </li>
                             {else}
                                 <li class="list-group-item">
-                                    <b>{Lang::T('Total')}</b> <span class="pull-right"
-                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{if $using eq 'zero'}{Lang::moneyFormat(0)}{else}{Lang::moneyFormat($plan['price'])}{/if}</span>
+                                    <b>{Lang::T('Total')}</b> {if $quantity && $quantity > 1}<small>× {$quantity}</small>{/if}<span class="pull-right"
+                                        style="font-size: large; font-weight:bolder; font-family: 'Courier New', Courier, monospace; ">{if $using eq 'zero'}{Lang::moneyFormat(0)}{else}{Lang::moneyFormat($plan['price'] * (($quantity)?$quantity:1))}{/if}</span>
                                 </li>
                             {/if}
                         {/if}
@@ -171,6 +182,7 @@
                     <input type="hidden" name="id_customer" value="{$cust['id']}">
                     <input type="hidden" name="plan" value="{$plan['id']}">
                     <input type="hidden" name="server" value="{$server}">
+                    <input type="hidden" name="quantity" value="{if $quantity}{$quantity}{else}1{/if}">
                     <input type="hidden" name="stoken" value="{App::getToken()}">
                     <center>
                         <button class="btn btn-success" type="submit">{Lang::T('Recharge')}</button><br>

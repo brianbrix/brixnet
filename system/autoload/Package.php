@@ -697,6 +697,9 @@ class Package
         $invoice .= Lang::pad("", '=') . "\n";
         $invoice .= Lang::pads(Lang::T('Type'), $in['type'], ' ') . "\n";
         $invoice .= Lang::pads(Lang::T('Plan Name'), $in['plan_name'], ' ') . "\n";
+        if (!empty($in['quantity']) && $in['quantity'] > 1) {
+            $invoice .= Lang::pads(Lang::T('Quantity'), $in['quantity'] . 'x', ' ') . "\n";
+        }
         if (!empty($in['note'])) {
             $invoice .= Lang::pad("", '=') . "\n";
             foreach ($tmp as $t) {

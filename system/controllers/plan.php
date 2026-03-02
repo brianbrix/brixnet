@@ -95,6 +95,7 @@ switch ($action) {
         $server = _post('server');
         $planId = _post('plan');
         $using = _post('using');
+        $quantity = max(1, min(100, (int)_post('quantity', 1)));
 
         $msg = '';
         if ($id_customer == '' or $server == '' or $planId == '' or $using == '') {
@@ -129,7 +130,9 @@ switch ($action) {
                 $tax = 0;
             }
             // Tax calculation stop
-            $total_cost = $plan['price'] + $add_cost + $tax;
+            
+            // Apply quantity to price calculation
+            $total_cost = ($plan['price'] + $add_cost + $tax) * $quantity;
 
             if ($using == 'balance' && $config['enable_balance'] == 'yes') {
                 if (!$cust) {
@@ -164,6 +167,7 @@ switch ($action) {
             $ui->assign('server', $server);
             $ui->assign('using', $using);
             $ui->assign('plan', $plan);
+            $ui->assign('quantity', $quantity);
             $ui->assign('add_inv', $add_inv);
             $ui->display('admin/plan/recharge-confirm.tpl');
         } else {
@@ -180,6 +184,7 @@ switch ($action) {
         $planId = _post('plan');
         $using = _post('using');
         $svoucher = _post('svoucher');
+        $quantity = max(1, min(100, (int)_post('quantity', 1)));
 
         $plan = ORM::for_table('tbl_plans')->find_one($planId);
 
@@ -219,7 +224,7 @@ switch ($action) {
                 $tax = 0;
             }
             // Tax calculation stop
-            $total_cost = $plan['price'] + $add_cost + $tax;
+            $total_cost = ($plan['price'] + $add_cost + $tax) * $quantity;
 
             if ($using == 'balance' && $config['enable_balance'] == 'yes') {
                 //$plan = ORM::for_table('tbl_plans')->find_one($planId);
@@ -239,7 +244,7 @@ switch ($action) {
                 $zero = 1;
                 $gateway = 'Recharge Zero';
             }
-            if (Package::rechargeUser($id_customer, $server, $planId, $gateway, $channel)) {
+            if (Package::rechargeUser($id_customer, $server, $planId, $gateway, $channel, '', $quantity)) {
                 if ($using == 'balance') {
                     Balance::min($cust['id'], $total_cost);
                 }
