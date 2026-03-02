@@ -72,7 +72,7 @@ switch ($action) {
             $query->where_in('plan_name', $plns);
         }
         $x =  $query->find_array();
-        $xy =  $query->sum('price');
+        $xy =  $query->sum('tbl_transactions.price');
 
         $ui->assign('sd', $sd);
         $ui->assign('ed', $ed);
@@ -112,9 +112,11 @@ switch ($action) {
         $te = _req('te', '23:59:59');
 
         $query = ORM::for_table('tbl_transactions')
+            ->inner_join('tbl_customers', ['tbl_transactions.user_id', '=', 'tbl_customers.id'])
+            ->where('tbl_customers.exclude_from_stats', 0)
             ->whereRaw("UNIX_TIMESTAMP(CONCAT(`recharged_on`,' ',`recharged_time`)) >= " . strtotime("$sd $ts"))
             ->whereRaw("UNIX_TIMESTAMP(CONCAT(`recharged_on`,' ',`recharged_time`)) <= " . strtotime("$ed $te"))
-            ->order_by_desc('id');
+            ->order_by_desc('tbl_transactions.id');
         if (count($tps) > 0) {
             $query->where_in('type', $tps);
         }
@@ -132,7 +134,7 @@ switch ($action) {
             $query->where_in('plan_name', $plns);
         }
         $x =  $query->find_array();
-        $xy =  $query->sum('price');
+        $xy =  $query->sum('tbl_transactions.price');
 
         $title = ' Reports [' . $mdate . ']';
         $title = str_replace('-', ' ', $title);
@@ -257,23 +259,27 @@ EOF;
         $tdate = _post('tdate');
         $stype = _post('stype');
 
-        $d = ORM::for_table('tbl_transactions');
+        $d = ORM::for_table('tbl_transactions')
+            ->inner_join('tbl_customers', ['tbl_transactions.user_id', '=', 'tbl_customers.id'])
+            ->where('tbl_customers.exclude_from_stats', 0);
         if ($stype != '') {
             $d->where('type', $stype);
         }
         $d->where_gte('recharged_on', $fdate);
         $d->where_lte('recharged_on', $tdate);
-        $d->order_by_desc('id');
+        $d->order_by_desc('tbl_transactions.id');
         $x =  $d->find_many();
 
-        $dr = ORM::for_table('tbl_transactions');
+        $dr = ORM::for_table('tbl_transactions')
+            ->inner_join('tbl_customers', ['tbl_transactions.user_id', '=', 'tbl_customers.id'])
+            ->where('tbl_customers.exclude_from_stats', 0);
         if ($stype != '') {
             $dr->where('type', $stype);
         }
 
         $dr->where_gte('recharged_on', $fdate);
         $dr->where_lte('recharged_on', $tdate);
-        $xy = $dr->sum('price');
+        $xy = $dr->sum('tbl_transactions.price');
 
         $ui->assign('d', $x);
         $ui->assign('dr', $xy);
@@ -289,24 +295,28 @@ EOF;
         $fdate = _post('fdate');
         $tdate = _post('tdate');
         $stype = _post('stype');
-        $d = ORM::for_table('tbl_transactions');
+        $d = ORM::for_table('tbl_transactions')
+            ->inner_join('tbl_customers', ['tbl_transactions.user_id', '=', 'tbl_customers.id'])
+            ->where('tbl_customers.exclude_from_stats', 0);
         if ($stype != '') {
             $d->where('type', $stype);
         }
 
         $d->where_gte('recharged_on', $fdate);
         $d->where_lte('recharged_on', $tdate);
-        $d->order_by_desc('id');
+        $d->order_by_desc('tbl_transactions.id');
         $x =  $d->find_many();
 
-        $dr = ORM::for_table('tbl_transactions');
+        $dr = ORM::for_table('tbl_transactions')
+            ->inner_join('tbl_customers', ['tbl_transactions.user_id', '=', 'tbl_customers.id'])
+            ->where('tbl_customers.exclude_from_stats', 0);
         if ($stype != '') {
             $dr->where('type', $stype);
         }
 
         $dr->where_gte('recharged_on', $fdate);
         $dr->where_lte('recharged_on', $tdate);
-        $xy = $dr->sum('price');
+        $xy = $dr->sum('tbl_transactions.price');
 
         $title = ' Reports [' . $mdate . ']';
         $title = str_replace('-', ' ', $title);
