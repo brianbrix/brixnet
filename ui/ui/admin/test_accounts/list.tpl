@@ -116,7 +116,7 @@
                         </div>
                     </form>
                     
-                    {$paginator['contents']}
+                    {include file="pagination.tpl"}
                 {/if}
             </div>
         </div>

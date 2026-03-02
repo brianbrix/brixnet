@@ -70,10 +70,11 @@ switch ($action) {
         break;
         
     case 'toggle_multiple':
-        $ids = _post('customer_ids');
+        // Handle array of customer IDs from checkboxes
+        $ids = isset($_POST['customer_ids']) && is_array($_POST['customer_ids']) ? $_POST['customer_ids'] : [];
         $action_type = _post('action_type'); // 'exclude' or 'include'
         
-        if (empty($ids) || !is_array($ids)) {
+        if (empty($ids)) {
             r2(getUrl('test_accounts/list'), 'e', Lang::T('No customers selected'));
         }
         
@@ -81,6 +82,7 @@ switch ($action) {
         $count = 0;
         
         foreach ($ids as $id) {
+            $id = (int)$id; // Ensure ID is integer
             $customer = ORM::for_table('tbl_customers')->find_one($id);
             if ($customer) {
                 $customer->exclude_from_stats = $value;
