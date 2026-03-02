@@ -28,20 +28,16 @@ switch ($action) {
         // Order by excluded first, then by username
         $query->order_by_desc('exclude_from_stats')->order_by_asc('username');
         
-        $results = Paginator::findMany($query);
+        $customers = Paginator::findMany($query);
         
         // Count excluded users
         $excluded_count = ORM::for_table('tbl_customers')
             ->where('exclude_from_stats', 1)
             ->count();
         
-        // Extract customers from paginator results
-        $customers = isset($results) ? $results : [];
-        
         $ui->assign('customers', $customers);
         $ui->assign('excluded_count', $excluded_count);
         $ui->assign('search', $search);
-        $ui->assign('paginator', Paginator::pagination());
         $ui->display('admin/test_accounts/list.tpl');
         break;
         
