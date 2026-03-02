@@ -205,6 +205,11 @@
                 </div>
 
                 <div class="form-group" style="margin-top:12px">
+                    <label>{Lang::T('Quantity')}</label>
+                    <input type="number" class="form-control" id="newPlanQuantity" value="1" min="1" max="100" style="text-align: center;">
+                    <small class="text-muted">{Lang::T('Multiply plan benefits by quantity')}</small>
+                </div>
+                <div class="form-group">
                     <label>{Lang::T('Message to Admin')} ({Lang::T('Optional')})</label>
                     <textarea class="form-control" id="newPlanMessage" rows="2"
                         placeholder="{Lang::T('Add any special request or note')}"></textarea>
@@ -228,18 +233,20 @@ function requestNewPlan(planId, planName, planPrice) {
     document.getElementById('newPlanPrice').textContent = planPrice;
     document.querySelectorAll('.new-plan-price-step').forEach(function(el){ el.textContent = planPrice; });
     document.getElementById('newPlanMessage').value = '';
+    document.getElementById('newPlanQuantity').value = 1;
     document.getElementById('newPlanResult').style.display = 'none';
     document.getElementById('sendNewPlanBtn').disabled = false;
     jQuery('#newPlanRequestModal').modal('show');
 }
 function sendNewPlanRequest() {
     var message = document.getElementById('newPlanMessage').value;
+    var quantity = parseInt(document.getElementById('newPlanQuantity').value) || 1;
     var btn = document.getElementById('sendNewPlanBtn');
     btn.disabled = true;
     jQuery.ajax({
         type: 'POST',
         url: '{Text::url('autoload_user/request_new_plan')}',
-        data: { plan_id: _newPlanId, message: message },
+        data: { plan_id: _newPlanId, message: message, quantity: quantity },
         dataType: 'json',
         success: function(resp) {
             var el = document.getElementById('newPlanResult');

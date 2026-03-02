@@ -26,6 +26,7 @@
                                     <th>{Lang::T('Date')}</th>
                                     <th>{Lang::T('Customer')}</th>
                                     <th>{Lang::T('Plan')}</th>
+                                    <th>{Lang::T('Qty')}</th>
                                     <th>{Lang::T('Status')}</th>
                                     <th style="width: 180px;">{Lang::T('Action')}</th>
                                 </tr>
@@ -42,6 +43,11 @@
                                         </td>
                                         <td>
                                             {$req['plan_name']}
+                                        </td>
+                                        <td>
+                                            <span class="badge badge-info">
+                                                {if isset($req['quantity']) && $req['quantity'] > 0}{$req['quantity']}{else}1{/if}
+                                            </span>
                                         </td>
                                         <td>
                                             {if $req['status'] == 'pending'}

@@ -82,12 +82,27 @@
                                 <td>{$plan['type']}</td>
                             </tr>
                             <tr>
+                                <td>{Lang::T('Quantity')}</td>
+                                <td><strong>{if isset($request['quantity']) && $request['quantity'] > 0}{$request['quantity']}{else}1{/if}</strong></td>
+                            </tr>
+                            <tr>
                                 <td>{Lang::T('Price')}</td>
                                 <td><strong>{Lang::moneyFormat($plan['price'])}</strong></td>
                             </tr>
                             <tr>
+                                <td>{Lang::T('Total Price')}</td>
+                                <td><strong>{Lang::moneyFormat($plan['price'] * (isset($request['quantity']) && $request['quantity'] > 0 ? $request['quantity'] : 1))}</strong></td>
+                            </tr>
+                            <tr>
                                 <td>{Lang::T('Validity')}</td>
-                                <td>{$plan['validity']} {$plan['validity_unit']}</td>
+                                <td>
+                                    {if isset($request['quantity']) && $request['quantity'] > 1}
+                                        <strong>{$plan['validity'] * $request['quantity']} {$plan['validity_unit']}</strong> 
+                                        <small class="text-muted">({$plan['validity']} × {$request['quantity']})</small>
+                                    {else}
+                                        {$plan['validity']} {$plan['validity_unit']}
+                                    {/if}
+                                </td>
                             </tr>
                         </table>
                     </div>

@@ -164,11 +164,6 @@
                                         </div>
                                     </div>
                                     <div class="box-body">
-                                        <div class="form-group" style="margin-bottom: 10px;">
-                                            <label style="font-size: 12px;">{Lang::T('Quantity')}</label>
-                                            <input type="number" class="form-control input-sm plan-quantity" value="1" min="1" max="100" data-plan-id="{$plan['id']}">
-                                            <small class="text-muted">{Lang::T('Multiply plan benefits by quantity')}</small>
-                                        </div>
                                         <a href="{Text::url('order/gateway/pppoe/',$plan['id'],'&stoken=',App::getToken())}"
                                             onclick="return ask(this, '{Lang::T('Buy this? your active package will be overwritten')}')"
                                             class="btn btn-sm btn-block btn-warning text-black buy-plan-btn">{Lang::T('Buy')}</a>
@@ -225,11 +220,6 @@
                                         </div>
                                     </div>
                                     <div class="box-body">
-                                        <div class="form-group" style="margin-bottom: 10px;">
-                                            <label style="font-size: 12px;">{Lang::T('Quantity')}</label>
-                                            <input type="number" class="form-control input-sm plan-quantity" value="1" min="1" max="100" data-plan-id="{$plan['id']}">
-                                            <small class="text-muted">{Lang::T('Multiply plan benefits by quantity')}</small>
-                                        </div>
                                         <a href="{Text::url('order/gateway/hotspot/',$plan['id'],'&stoken=',App::getToken())}"
                                             onclick="return ask(this, '{Lang::T('Buy this? your active package will be overwritten')}')"
                                             class="btn btn-sm btn-block btn-warning text-black buy-plan-btn">{Lang::T('Buy')}</a>
@@ -602,54 +592,76 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Find all plan Buy buttons
-    var buyButtons = document.querySelectorAll('.box-body a[href*="order/gateway"], .box-body a[href*="order/send"]');
+(function() {
+    'use strict';
     
-    buyButtons.forEach(function(button) {
-        // Skip if already processed or is "Buy for friend" button
-        if (button.hasAttribute('data-qty-processed') || button.textContent.includes('friend')) {
-            return;
-        }
+    function addQuantityInputs() {
+        // Find all Buy buttons in plan cards
+        var buyButtons = document.querySelectorAll('a[href*="order/gateway"], a[href*="order/pay"]');
         
-        button.setAttribute('data-qty-processed', 'true');
+        console.log('Found ' + buyButtons.length + ' buy buttons');
         
-        // Create quantity input container
-        var qtyDiv = document.createElement('div');
-        qtyDiv.className = 'form-group';
-        qtyDiv.style.marginBottom = '10px';
-        qtyDiv.innerHTML = '<label style="font-size: 12px; font-weight: normal;">{Lang::T("Quantity")}</label>' +
-            '<input type="number" class="form-control input-sm plan-quantity-input" value="1" min="1" max="100" style="text-align: center;">' +
-            '<small class="text-muted" style="font-size: 11px;">{Lang::T("Multiply plan benefits by quantity")}</small>';
-        
-        // Insert before the button
-        button.parentNode.insertBefore(qtyDiv, button);
-        
-        // Store original href
-        button.setAttribute('data-original-href', button.href);
-        
-        // Update href when quantity changes
-        var qtyInput = qtyDiv.querySelector('.plan-quantity-input');
-        qtyInput.addEventListener('change', function() {
-            var qty = parseInt(this.value) || 1;
-            if (qty < 1) {
-                qty = 1;
-                this.value = 1;
-            }
-            if (qty > 100) {
-                qty = 100;
-                this.value = 100;
+        buyButtons.forEach(function(button) {
+            // Skip if already processed
+            if (button.hasAttribute('data-qty-processed')) {
+                return;
             }
             
-            var originalHref = button.getAttribute('data-original-href');
-            var separator = originalHref.includes('?') ? '&' : '&';
-            button.href = originalHref + separator + 'qty=' + qty;
+            // Skip "Buy for friend" buttons
+            var buttonText = button.textContent || button.innerText;
+            if (buttonText.toLowerCase().includes('friend')) {
+                return;
+            }
+            
+            // Skip if parent already has a quantity input
+            var parent = button.parentNode;
+            if (parent && parent.querySelector('.plan-quantity-input')) {
+                return;
+            }
+            
+            button.setAttribute('data-qty-processed', 'true');
+            
+            // Create quantity input container
+            var qtyDiv = document.createElement('div');
+            qtyDiv.className = 'form-group';
+            qtyDiv.style.marginBottom = '10px';
+            qtyDiv.innerHTML = '<label style="font-size: 12px; font-weight: normal;">Quantity</label>' +
+                '<input type="number" class="form-control input-sm plan-quantity-input" value="1" min="1" max="100" style="text-align: center;">' +
+                '<small class="text-muted" style="font-size: 11px;">Multiply plan benefits by quantity</small>';
+            
+            // Insert before the button
+            parent.insertBefore(qtyDiv, button);
+            
+            // Store original href
+            button.setAttribute('data-original-href', button.href);
+            
+            // Update href when quantity changes
+            var qtyInput = qtyDiv.querySelector('.plan-quantity-input');
+            qtyInput.addEventListener('change', function() {
+                var qty = parseInt(this.value) || 1;
+                if (qty < 1) qty = 1;
+                if (qty > 100) qty = 100;
+                this.value = qty;
+                
+                var originalHref = button.getAttribute('data-original-href');
+                var separator = originalHref.indexOf('?') !== -1 ? '&' : '?';
+                // Remove any existing qty parameter
+                originalHref = originalHref.replace(/[?&]qty=\d+/, '');
+                button.href = originalHref + separator + 'qty=' + qty;
+            });
+            
+            // Trigger initial change
+            qtyInput.dispatchEvent(new Event('change'));
         });
-        
-        // Trigger change to set initial href with qty=1
-        qtyInput.dispatchEvent(new Event('change'));
-    });
-});
+    }
+    
+    // Run when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addQuantityInputs);
+    } else {
+        addQuantityInputs();
+    }
+})();
 </script>
 
 {include file="customer/footer.tpl"}

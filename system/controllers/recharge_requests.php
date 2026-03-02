@@ -70,7 +70,10 @@ switch ($action) {
         $bill = ($request['bill_id'] > 0) ? ORM::for_table('tbl_user_recharges')->find_one($request['bill_id']) : null;
         $router_name = ($bill && !empty($bill['routers'])) ? $bill['routers'] : $plan['routers'];
 
-        if (Package::rechargeUser($customer['id'], $router_name, $plan['id'], 'Admin', 'Recharge Request')) {
+        // Get quantity from request (default to 1 if not set for backward compatibility)
+        $quantity = isset($request['quantity']) && $request['quantity'] > 0 ? (int)$request['quantity'] : 1;
+
+        if (Package::rechargeUser($customer['id'], $router_name, $plan['id'], 'Admin', 'Recharge Request', $quantity)) {
             // Fetch the transaction just created by rechargeUser (same as admin manual recharge flow)
             $in = ORM::for_table('tbl_transactions')
                 ->where('username', $customer['username'])

@@ -92,12 +92,14 @@ switch ($action) {
                 throw new Exception('Plan not found');
             }
             // Create recharge request record (no bill_id since they don't have one yet)
+            $quantity = max(1, min(100, (int)_post('quantity', 1)));
             $request = ORM::for_table('tbl_recharge_requests')->create();
             $request->customer_id = $user['id'];
             $request->username = $user['username'];
             $request->bill_id = 0;
             $request->plan_id = $plan_id;
             $request->plan_name = $plan['name_plan'];
+            $request->quantity = $quantity;
             $request->message = 'NEW PLAN REQUEST: ' . $message;
             $request->status = 'pending';
             $request->requested_date = date('Y-m-d H:i:s');
@@ -145,12 +147,14 @@ switch ($action) {
             }
             
             // Create recharge request record
+            $quantity = max(1, min(100, (int)_post('quantity', 1)));
             $request = ORM::for_table('tbl_recharge_requests')->create();
             $request->customer_id = $user['id'];
             $request->username = $user['username'];
             $request->bill_id = $bill_id;
             $request->plan_id = $bill['plan_id'];
             $request->plan_name = $bill['namebp'];
+            $request->quantity = $quantity;
             $request->message = $message;
             $request->status = 'pending';
             $request->requested_date = date('Y-m-d H:i:s');

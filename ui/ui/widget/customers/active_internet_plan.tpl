@@ -308,6 +308,7 @@
                 document.getElementById('recharge_plan_price_mpesa').textContent = planPrice;
                 document.getElementById('recharge_plan_price_airtel').textContent = planPrice;
                 document.getElementById('recharge_message').value = '';
+                document.getElementById('recharge_quantity').value = 1;
                 
                 // Show modal
                 if (typeof jQuery !== 'undefined') {
@@ -330,8 +331,9 @@
         console.log('submitRechargeRequest called');
         const billId = currentBillId;
         const message = document.getElementById('recharge_message').value;
+        const quantity = parseInt(document.getElementById('recharge_quantity').value) || 1;
         
-        console.log('Sending recharge request - billId:', billId, 'message:', message);
+        console.log('Sending recharge request - billId:', billId, 'message:', message, 'quantity:', quantity);
         
         if (!billId) {
             alert('Bill ID is missing!');
@@ -348,7 +350,8 @@
                 url: '{Text::url('autoload_user/request_recharge')}',
                 data: {
                     bill_id: billId,
-                    message: message
+                    message: message,
+                    quantity: quantity
                 },
                 dataType: 'json',
                 success: function(resp) {

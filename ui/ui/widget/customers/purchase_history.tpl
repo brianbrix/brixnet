@@ -124,6 +124,8 @@ function requestRecharge(billId, planName) {
     const modal = document.getElementById('rechargeRequestModal') || createRechargeModal();
     document.getElementById('recharge_bill_id').value = billId;
     document.getElementById('recharge_plan_name').textContent = planName;
+    const quantityInput = document.getElementById('recharge_quantity_ph');
+    if (quantityInput) quantityInput.value = 1;
     $(modal).modal('show');
 }
 
@@ -143,6 +145,11 @@ function createRechargeModal() {
                     <form id="rechargeRequestForm">
                         <input type="hidden" id="recharge_bill_id" name="bill_id">
                         <input type="hidden" name="csrf_token" value="{$csrf_token|default:''}">
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" class="form-control" name="quantity" id="recharge_quantity_ph" value="1" min="1" max="100" style="text-align: center;">
+                            <small class="text-muted">Multiply plan benefits by quantity</small>
+                        </div>
                         <div class="form-group">
                             <label>Request Message (Optional)</label>
                             <textarea class="form-control" name="message" rows="3" placeholder="Add any special request or note..."></textarea>
@@ -164,6 +171,7 @@ $(document).on('submit', '#rechargeRequestForm', function(e) {
     e.preventDefault();
     const billId = document.getElementById('recharge_bill_id').value;
     const message = $('[name="message"]').val();
+    const quantity = parseInt($('#recharge_quantity_ph').val()) || 1;
     
     // Get CSRF token from multiple possible sources
     let csrfToken = $('[name="csrf_token"]').val() || 
@@ -173,6 +181,7 @@ $(document).on('submit', '#rechargeRequestForm', function(e) {
     $.post('{Text::url('autoload_user/request_recharge')}', {
         bill_id: billId,
         message: message,
+        quantity: quantity,
         csrf_token: csrfToken
     }, function(resp) {
         if (resp.status === 'success') {
