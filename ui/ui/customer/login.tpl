@@ -2,8 +2,7 @@
 
 <div class="hidden-xs" style="height:100px"></div>
 <div class="row">
-    <div class="col-sm-6 col-sm-offset-1">
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-sm-offset-3">
         <div class="panel panel-primary">
             <div class="panel-heading">{Lang::T('Log in to Member Panel')}</div>
             <div class="panel-body">

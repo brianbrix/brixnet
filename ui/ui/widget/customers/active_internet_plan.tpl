@@ -308,8 +308,18 @@
     // Store currently selected bill ID
     var currentBillId = null;
     
-    // Handle Request button clicks
-    document.addEventListener('DOMContentLoaded', function() {
+    // Wait for jQuery to be available
+    function initRechargeModal() {
+        if (typeof jQuery === 'undefined') {
+            console.warn('jQuery not yet loaded, retrying...');
+            setTimeout(initRechargeModal, 100);
+            return;
+        }
+        
+        console.log('jQuery available, initializing recharge modal');
+        
+        // Handle Request button clicks
+        document.addEventListener('DOMContentLoaded', function() {
         console.log('DOM loaded, setting up recharge request listeners');
         
         // Store base price for calculations
@@ -325,13 +335,14 @@
                 var billId = this.getAttribute('data-bill-id');
                 var planName = this.getAttribute('data-plan-name');
                 var planPrice = this.getAttribute('data-plan-price');
-                console.log('Request button clicked - billId:', billId, 'planName:', planName, 'price:', planPrice);
+                console.log('Request button clicked - billId:', billId, 'planName:', planName, 'raw price:', planPrice, 'type:', typeof planPrice);
                 
                 currentBillId = billId;
-                rechargeBasePrice = parseFloat(planPrice) || 0;
+                rechargeBasePrice = planPrice ? parseFloat(planPrice.toString().replace(/[^\d.]/g, '')) : 0;
+                console.log('Parsed rechargeBasePrice:', rechargeBasePrice);
                 
                 document.getElementById('recharge_plan_name').textContent = planName;
-                document.getElementById('recharge_base_price').textContent = planPrice;
+                document.getElementById('recharge_base_price').textContent = rechargeBasePrice.toFixed(2);
                 document.getElementById('recharge_message').value = '';
                 document.getElementById('recharge_quantity').value = 1;
                 
@@ -350,11 +361,14 @@
         
         // Handle quantity changes
         function updateRechargePrices() {
+            console.log('updateRechargePrices called, rechargeBasePrice:', rechargeBasePrice);
             var quantity = parseInt(document.getElementById('recharge_quantity').value) || 1;
+            console.log('Quantity:', quantity);
             if (quantity < 1) quantity = 1;
             if (quantity > 100) quantity = 100;
             
             var totalPrice = (rechargeBasePrice * quantity).toFixed(2);
+            console.log('Calculated totalPrice:', totalPrice);
             
             document.getElementById('recharge_plan_price_mpesa').textContent = totalPrice;
             document.getElementById('recharge_plan_price_airtel').textContent = totalPrice;
@@ -426,5 +440,12 @@
             document.getElementById('submitRechargeBtn').disabled = false;
         }
     };
+    
+    // Initialize when document is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initRechargeModal);
+    } else {
+        initRechargeModal();
+    }
     </script>
 {/if}
