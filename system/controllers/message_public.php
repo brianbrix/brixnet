@@ -12,8 +12,9 @@ $mac = trim((string) _get('nux-mac', isset($_SESSION['nux-mac']) ? $_SESSION['nu
 $ip = trim((string) _get('nux-ip', isset($_SESSION['nux-ip']) ? $_SESSION['nux-ip'] : ''));
 
 // Check if user is logged in
-$logged_in_user = User::_info();
-$is_authenticated = !empty($logged_in_user['id']);
+$current_user_id = (int) User::getID();
+$is_authenticated = $current_user_id > 0;
+$logged_in_user = $is_authenticated ? User::_info($current_user_id) : null;
 
 function find_guest_reply($mac, $ip)
 {
@@ -124,9 +125,10 @@ switch ($action) {
 
         // Use authenticated user details if logged in
         if ($is_authenticated) {
-            $sender_name = $logged_in_user['fullname'] ?: $logged_in_user['username'];
-            $sender_contact = $logged_in_user['email'] ?: 'Not provided';
-            $title = "Message from " . $logged_in_user['username'];
+            $sender_username = !empty($logged_in_user['username']) ? $logged_in_user['username'] : ('uid-' . $current_user_id);
+            $sender_name = !empty($logged_in_user['fullname']) ? $logged_in_user['fullname'] : $sender_username;
+            $sender_contact = !empty($logged_in_user['email']) ? $logged_in_user['email'] : 'Not provided';
+            $title = "Message from " . $sender_username;
             $message_type = 'user_message';
             $redirect_url = getUrl('home');
         } else {
@@ -145,10 +147,10 @@ switch ($action) {
             "Contact: " . $sender_contact . "\n" .
             "MAC: " . $mac . "\n" .
             "IP: " . $ip . "\n" .
-            ($is_authenticated ? "Username: " . $logged_in_user['username'] . "\n" : "") .
+            ($is_authenticated ? "Username: " . $sender_username . "\n" : "") .
             "\nMessage:\n" . $message_text;
         $notif->type = $message_type;
-        $notif->related_id = $is_authenticated ? (int) $logged_in_user['id'] : 0;
+        $notif->related_id = $is_authenticated ? $current_user_id : 0;
         $notif->status = 'unread';
         $notif->created_date = date('Y-m-d H:i:s');
         $notif->save();
@@ -160,11 +162,11 @@ switch ($action) {
             "Contact: " . $sender_contact . "\n" .
             "MAC: `" . $mac . "`\n" .
             "IP: `" . $ip . "`\n" .
-            ($is_authenticated ? "Username: `" . $logged_in_user['username'] . "`\n" : "") .
+            ($is_authenticated ? "Username: `" . $sender_username . "`\n" : "") .
             "\nMessage:\n_" . substr($message_text, 0, 300) . "_"
         );
 
-        _log('[' . ($is_authenticated ? $logged_in_user['username'] : 'Guest') . ']: Message sent from MAC: ' . $mac . ', IP: ' . $ip, 'Message', $is_authenticated ? $logged_in_user['id'] : 0);
+        _log('[' . ($is_authenticated ? $sender_username : 'Guest') . ']: Message sent from MAC: ' . $mac . ', IP: ' . $ip, 'Message', $is_authenticated ? $current_user_id : 0);
 
         r2($redirect_url, 's', Lang::T('Message sent successfully! An admin will contact you soon.'));
         break;

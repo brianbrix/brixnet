@@ -49,6 +49,19 @@ function extract_guest_identity($messageBody)
     return ['mac' => $mac, 'ip' => $ip];
 }
 
+function extract_message_username($title, $messageBody)
+{
+    if (preg_match('/^Username:\s*(.+)$/mi', (string) $messageBody, $match)) {
+        return trim($match[1]);
+    }
+
+    if (preg_match('/^Message from\s+(.+)$/i', (string) $title, $match)) {
+        return trim($match[1]);
+    }
+
+    return '';
+}
+
 switch ($action) {
     case 'list':
     default:
@@ -102,7 +115,15 @@ switch ($action) {
         break;
 
     case 'reply':
-        $id = $routes['2'];
+        $id = (int) (isset($routes['2']) ? $routes['2'] : 0);
+        if ($id <= 0) {
+            $id = (int) _post('message_id', _get('id', 0));
+        }
+
+        if ($id <= 0) {
+            r2(getUrl('admin_messages/list'), 'e', Lang::T('Message not found'));
+        }
+
         $csrf_token = _post('csrf_token');
         if (!Csrf::check($csrf_token)) {
             r2(getUrl('admin_messages/view/', $id), 'e', Lang::T('Invalid or Expired CSRF Token') . '.');
@@ -131,6 +152,28 @@ switch ($action) {
                 $reply_text,
                 $admin['fullname'] ?: $admin['username']
             );
+        } elseif ($message['type'] === 'user_message') {
+            // Fallback for legacy records where related_id was not stored.
+            $username = extract_message_username($message['title'], $message['message']);
+            if ($username === '') {
+                r2(getUrl('admin_messages/view/', $id), 'e', Lang::T('Sender account not found'));
+            }
+
+            $target_customer = ORM::for_table('tbl_customers')->where('username', $username)->find_one();
+            if (!$target_customer) {
+                r2(getUrl('admin_messages/view/', $id), 'e', Lang::T('Sender account not found'));
+            }
+
+            $subject = Lang::T('Reply from Admin');
+            Message::addToInbox(
+                $target_customer['id'],
+                $subject,
+                $reply_text,
+                $admin['fullname'] ?: $admin['username']
+            );
+
+            // Backfill linkage so the next reply path is direct and reliable.
+            $message->related_id = (int) $target_customer['id'];
         } elseif ($message['type'] === 'guest_message') {
             ensure_guest_reply_table();
             $identity = extract_guest_identity($message['message']);

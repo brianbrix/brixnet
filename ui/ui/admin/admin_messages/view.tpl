@@ -99,6 +99,7 @@
                                 <div class="panel-body">
                                     <form method="post" action="{Text::url('admin_messages/reply/', $message['id'])}">
                                         <input type="hidden" name="csrf_token" value="{$csrf_token}">
+                                        <input type="hidden" name="message_id" value="{$message['id']}">
                                         <div class="form-group">
                                             <label for="reply_message">{Lang::T('Your Reply')}</label>
                                             <textarea class="form-control" name="reply_message" id="reply_message" rows="4" required placeholder="{Lang::T('Write your reply to the customer')}..."></textarea>
