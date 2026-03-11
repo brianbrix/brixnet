@@ -91,7 +91,7 @@
                             </div>
                         {/if}
 
-                        {if ($message['type'] == 'user_message' && $message['related_id'] > 0) || $message['type'] == 'guest_message'}
+                        {if $message['type'] == 'user_message' || $message['type'] == 'guest_message'}
                             <div class="panel panel-success">
                                 <div class="panel-heading">
                                     <h4 class="panel-title">{Lang::T('Reply to Sender')}</h4>

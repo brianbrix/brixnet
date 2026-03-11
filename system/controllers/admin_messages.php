@@ -116,12 +116,16 @@ switch ($action) {
 
     case 'reply':
         $id = (int) (isset($routes['2']) ? $routes['2'] : 0);
+        $post_id = (int) _post('message_id', 0);
+        $get_id  = (int) _get('id', 0);
         if ($id <= 0) {
-            $id = (int) _post('message_id', _get('id', 0));
+            $id = $post_id > 0 ? $post_id : $get_id;
         }
 
         if ($id <= 0) {
-            r2(getUrl('admin_messages/list'), 'e', Lang::T('Message not found'));
+            r2(getUrl('admin_messages/list'), 'e',
+                'Reply failed: no message ID found (route=' . (isset($routes['2']) ? $routes['2'] : 'unset') .
+                ', POST message_id=' . $post_id . ', GET id=' . $get_id . ')');
         }
 
         $csrf_token = _post('csrf_token');
@@ -131,7 +135,8 @@ switch ($action) {
 
         $message = ORM::for_table('tbl_admin_notifications')->find_one($id);
         if (!$message) {
-            r2(getUrl('admin_messages/list'), 'e', Lang::T('Message not found'));
+            r2(getUrl('admin_messages/list'), 'e',
+                'Reply failed: no record found with ID=' . $id . ' in tbl_admin_notifications');
         }
 
         $reply_text = trim((string) _post('reply_message'));
