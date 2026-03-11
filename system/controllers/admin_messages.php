@@ -115,17 +115,15 @@ switch ($action) {
         break;
 
     case 'reply':
-        $id = (int) (isset($routes['2']) ? $routes['2'] : 0);
-        $post_id = (int) _post('message_id', 0);
-        $get_id  = (int) _get('id', 0);
+        // ID comes exclusively from POST body to avoid URL routing ambiguity
+        $id = (int) _post('message_id', 0);
         if ($id <= 0) {
-            $id = $post_id > 0 ? $post_id : $get_id;
+            // Fallback: try the URL segment (canonical mode) or GET
+            $id = (int) (isset($routes['2']) && $routes['2'] !== '' ? $routes['2'] : _get('id', 0));
         }
 
         if ($id <= 0) {
-            r2(getUrl('admin_messages/list'), 'e',
-                'Reply failed: no message ID found (route=' . (isset($routes['2']) ? $routes['2'] : 'unset') .
-                ', POST message_id=' . $post_id . ', GET id=' . $get_id . ')');
+            r2(getUrl('admin_messages/list'), 'e', Lang::T('Message not found'));
         }
 
         $csrf_token = _post('csrf_token');
@@ -208,7 +206,7 @@ switch ($action) {
 
         _log('Admin replied to message #' . $message['id'], 'Message', $admin['id']);
 
-        r2(getUrl('admin_messages/view/', $id), 's', Lang::T('Reply sent successfully'));
+        r2(getUrl('admin_messages/list'), 's', Lang::T('Reply sent successfully'));
         break;
         
     case 'mark_read':

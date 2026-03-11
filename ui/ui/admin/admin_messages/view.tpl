@@ -97,7 +97,7 @@
                                     <h4 class="panel-title">{Lang::T('Reply to Sender')}</h4>
                                 </div>
                                 <div class="panel-body">
-                                    <form method="post" action="{Text::url('admin_messages/reply/', $message['id'])}">
+                                    <form method="post" action="{Text::url('admin_messages/reply')}">
                                         <input type="hidden" name="csrf_token" value="{$csrf_token}">
                                         <input type="hidden" name="message_id" value="{$message['id']}">
                                         <div class="form-group">
