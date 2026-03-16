@@ -35,15 +35,17 @@
             for (var i = 1; i <= 12; i++) {
                 var month = findMonthData(monthlySales, i);
                 labels.push(month ? monthNames[i - 1] : monthNames[i - 1].substring(0, 3));
-                data.push(month ? month.totalSales : 0);
+                // Convert to whole numbers (round to nearest integer)
+                data.push(month ? Math.round(month.totalSales) : 0);
             }
 
-            // Format currency function
+            // Format currency function for whole numbers
             function formatCurrency(amount) {
-                var formattedAmount = amount.toFixed(2).replace('.', decPoint);
-                var parts = formattedAmount.split(decPoint);
-                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
-                return currencyCode + ' ' + parts.join(decPoint);
+                // Round to nearest integer
+                var roundedAmount = Math.round(amount);
+                // Format with thousands separator
+                var formattedAmount = roundedAmount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
+                return currencyCode + ' ' + formattedAmount;
             }
 
             var ctx = document.getElementById('salesChart').getContext('2d');
@@ -69,13 +71,16 @@
                         },
                         y: {
                             beginAtZero: true,
+                            min: 10,
+                            max: 10000,
                             grid: {
                                 color: 'rgba(0, 0, 0, 0.1)'
                             },
                             ticks: {
                                 callback: function(value) {
                                     return formatCurrency(value);
-                                }
+                                },
+                                stepSize: 1000
                             }
                         }
                     },
