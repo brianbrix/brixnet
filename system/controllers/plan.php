@@ -442,7 +442,40 @@ switch ($action) {
                 }
             }
             $d->save();
-            _log('[' . $admin['username'] . ']: ' . 'Edit Plan for Customer ' . $d['username'] . ' to [' . $d['namebp'] . '][' . Lang::moneyFormat($p['price']) . ']', $admin['user_type'], $admin['id']);
+            
+            // Enhanced audit log for plan edits
+            $planForLog = ($oldPlanID != $id_plan) ? $newPlan : ORM::for_table('tbl_plans')->find_one($oldPlanID);
+            
+            // Build detailed audit message
+            $auditMessage = 'Edit Plan for Customer ' . $d['username'] . ' to [' . $d['namebp'] . '][' . Lang::moneyFormat($planForLog['price']) . ']';
+            
+            // Add change details
+            $changes = [];
+            if ($oldPlanID != $id_plan) {
+                $oldPlan = ORM::for_table('tbl_plans')->find_one($oldPlanID);
+                $changes[] = "Plan Changed: {$oldPlan['name_plan']} → {$newPlan['name_plan']}";
+                $changes[] = "Price: " . Lang::moneyFormat($oldPlan['price']) . " → " . Lang::moneyFormat($newPlan['price']);
+            }
+            
+            // Check for date/time changes
+            $oldExpiration = $d['expiration'];
+            $oldTime = $d['time'];
+            if ($oldExpiration != $expiration || $oldTime != $time) {
+                $changes[] = "Date/Time: " . ($oldExpiration . ' ' . $oldTime) . " → " . ($expiration . ' ' . $time);
+            }
+            
+            // Check for recharged_on change
+            $oldRechargedOn = $d['recharged_on'];
+            $newRechargedOn = $recharged_on;
+            if ($oldRechargedOn != $newRechargedOn) {
+                $changes[] = "Recharge Date: " . $oldRechargedOn . " → " . $newRechargedOn;
+            }
+            
+            if (!empty($changes)) {
+                $auditMessage .= " | Changes: " . implode('; ', $changes);
+            }
+            
+            _log('[' . $admin['username'] . ']: ' . $auditMessage, $admin['user_type'], $admin['id']);
             r2(getUrl('plan/list'), 's', Lang::T('Data Updated Successfully'));
         } else {
             r2(getUrl('plan/edit/') . $id, 'e', $msg);
