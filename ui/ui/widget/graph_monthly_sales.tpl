@@ -20,6 +20,9 @@
     {literal}
         document.addEventListener("DOMContentLoaded", function() {
             var monthlySales = JSON.parse('{/literal}{$monthlySales|json_encode}{literal}');
+            var currencyCode = '{/literal}{$currency_code}{literal}';
+            var decPoint = '{/literal}{$dec_point}{literal}';
+            var thousandsSep = '{/literal}{$thousands_sep}{literal}';
 
             var monthNames = [
                 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -33,6 +36,14 @@
                 var month = findMonthData(monthlySales, i);
                 labels.push(month ? monthNames[i - 1] : monthNames[i - 1].substring(0, 3));
                 data.push(month ? month.totalSales : 0);
+            }
+
+            // Format currency function
+            function formatCurrency(amount) {
+                var formattedAmount = amount.toFixed(2).replace('.', decPoint);
+                var parts = formattedAmount.split(decPoint);
+                parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSep);
+                return currencyCode + ' ' + parts.join(decPoint);
             }
 
             var ctx = document.getElementById('salesChart').getContext('2d');
@@ -63,7 +74,7 @@
                             },
                             ticks: {
                                 callback: function(value) {
-                                    return '$' + value.toFixed(2);
+                                    return formatCurrency(value);
                                 }
                             }
                         }
@@ -72,7 +83,20 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    return 'Sales: $' + context.parsed.y.toFixed(2);
+                                    return 'Sales: ' + formatCurrency(context.parsed.y);
+                                }
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            labels: {
+                                generateLabels: function(chart) {
+                                    return [{
+                                        text: 'Monthly Sales (' + currencyCode + ')',
+                                        fillStyle: 'rgba(54, 162, 235, 0.5)',
+                                        strokeStyle: 'rgba(54, 162, 235, 1)',
+                                        lineWidth: 1
+                                    }];
                                 }
                             }
                         }

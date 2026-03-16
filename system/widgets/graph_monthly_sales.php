@@ -4,14 +4,14 @@ class graph_monthly_sales
 {
     public function getWidget()
     {
-        global $CACHE_PATH, $ui;
+        global $CACHE_PATH, $ui, $config;
 
         $cacheMSfile = $CACHE_PATH . File::pathFixer('/monthlySales.temp');
         //Cache for 12 hours
         if (file_exists($cacheMSfile) && time() - filemtime($cacheMSfile) < 43200) {
             $monthlySales = json_decode(file_get_contents($cacheMSfile), true);
         } else {
-            // Query to retrieve monthly data - Fixed query
+            // Query to retrieve monthly data - Fixed and enhanced query
             $results = ORM::for_table('tbl_transactions')
                 ->select_expr('MONTH(recharged_on)', 'month')
                 ->select_expr('SUM(tbl_transactions.price)', 'total')
@@ -60,7 +60,12 @@ class graph_monthly_sales
             file_put_contents($cacheMSfile, json_encode($monthlySales));
         }
 
+        // Pass currency configuration to template
+        $ui->assign('currency_code', isset($config['currency_code']) ? $config['currency_code'] : '$');
+        $ui->assign('dec_point', isset($config['dec_point']) ? $config['dec_point'] : '.');
+        $ui->assign('thousands_sep', isset($config['thousands_sep']) ? $config['thousands_sep'] : ',');
         $ui->assign('monthlySales', $monthlySales);
+        
         return $ui->fetch('widget/graph_monthly_sales.tpl');
     }
 }
