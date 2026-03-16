@@ -72,6 +72,16 @@
                         <p class="help-block col-md-4">{Lang::T('Multiply plan benefits by quantity')}</p>
                     </div>
                     <div class="form-group">
+                        <label class="col-md-2 control-label">{Lang::T('Start Date & Time')}</label>
+                        <div class="col-md-3">
+                            <input type="date" name="start_date" class="form-control" value="{date('Y-m-d')}">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="time" name="start_time" class="form-control" value="{date('H:i')}">
+                        </div>
+                        <p class="help-block col-md-4">{Lang::T('Leave as default to start immediately')}</p>
+                    </div>
+                    <div class="form-group">
                         <div class="col-lg-offset-2 col-lg-10">
                             <button class="btn btn-success"
                                 onclick="return ask(this, '{Lang::T('Continue the Recharge process')}?')"

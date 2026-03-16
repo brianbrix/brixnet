@@ -96,6 +96,8 @@ switch ($action) {
         $planId = _post('plan');
         $using = _post('using');
         $quantity = max(1, min(100, (int)_post('quantity', 1)));
+        $start_date = _post('start_date');
+        $start_time = _post('start_time');
 
         $msg = '';
         if ($id_customer == '' or $server == '' or $planId == '' or $using == '') {
@@ -169,6 +171,8 @@ switch ($action) {
             $ui->assign('plan', $plan);
             $ui->assign('quantity', $quantity);
             $ui->assign('add_inv', $add_inv);
+            $ui->assign('start_date', $start_date);
+            $ui->assign('start_time', $start_time);
             $ui->display('admin/plan/recharge-confirm.tpl');
         } else {
             r2(getUrl('plan/recharge'), 'e', $msg);
@@ -185,6 +189,8 @@ switch ($action) {
         $using = _post('using');
         $svoucher = _post('svoucher');
         $quantity = max(1, min(100, (int)_post('quantity', 1)));
+        $start_date = _post('start_date');
+        $start_time = _post('start_time');
 
         $plan = ORM::for_table('tbl_plans')->find_one($planId);
 
@@ -244,7 +250,7 @@ switch ($action) {
                 $zero = 1;
                 $gateway = 'Recharge Zero';
             }
-            if (Package::rechargeUser($id_customer, $server, $planId, $gateway, $channel, '', $quantity)) {
+            if (Package::rechargeUser($id_customer, $server, $planId, $gateway, $channel, '', $quantity, $start_date, $start_time)) {
                 if ($using == 'balance') {
                     Balance::min($cust['id'], $total_cost);
                 }

@@ -10,25 +10,35 @@
 class Package
 {
     /**
-     * @param int   $id_customer String user identifier
+     * Recharge User account
+     * @param int   $id_customer customer id
      * @param string $router_name router name for this package
      * @param int   $plan_id plan id for this package
      * @param string $gateway payment gateway name
      * @param string $channel channel payment gateway
      * @param string $note additional notes
      * @param int   $quantity quantity to multiply plan benefits (default 1)
+     * @param string $custom_start_date custom start date (Y-m-d format, optional)
+     * @param string $custom_start_time custom start time (H:i format, optional)
      * @return boolean
      */
-    public static function rechargeUser($id_customer, $router_name, $plan_id, $gateway, $channel, $note = '', $quantity = 1)
+    public static function rechargeUser($id_customer, $router_name, $plan_id, $gateway, $channel, $note = '', $quantity = 1, $custom_start_date = '', $custom_start_time = '')
     {
         global $config, $admin, $c, $p, $b, $t, $d, $zero, $trx, $_app_stage, $isChangePlan;
         
         // Ensure quantity is at least 1
         $quantity = max(1, (int)$quantity);
         
-        $date_only = date("Y-m-d");
-        $time_only = date("H:i:s");
-        $time = date("H:i:s");
+        // Use custom start date/time if provided, otherwise use current date/time
+        if (!empty($custom_start_date) && !empty($custom_start_time)) {
+            $date_only = $custom_start_date;
+            $time_only = $custom_start_time . ':00'; // Add seconds
+            $time = $custom_start_time . ':00';
+        } else {
+            $date_only = date("Y-m-d");
+            $time_only = date("H:i:s");
+            $time = date("H:i:s");
+        }
         $inv = "";
         $isVoucher = false;
         $c = [];
