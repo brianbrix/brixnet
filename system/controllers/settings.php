@@ -158,6 +158,14 @@ switch ($action) {
 
         $r = ORM::for_table('tbl_routers')->find_many();
         $ui->assign('r', $r);
+        $ui->assign('themes', $themes);
+        $ui->assign('templates', $templates);
+        
+        // Debug: Check current theme value
+        $current_theme = isset($config['theme']) ? $config['theme'] : 'default';
+        error_log('Current theme from config: ' . $current_theme);
+        error_log('Full config array keys: ' . implode(', ', array_keys($config)));
+        
         if (function_exists("shell_exec")) {
             $php = trim(shell_exec('which php'));
             if (empty($php)) {
@@ -182,6 +190,19 @@ switch ($action) {
         if (empty($config['mikrotik_sms_command'])) {
             $config['mikrotik_sms_command'] = "/tool sms send";
         }
+        
+        // Ensure theme setting exists in database
+        if (!isset($config['theme'])) {
+            $d = ORM::for_table('tbl_appconfig')->where('setting', 'theme')->find_one();
+            if (!$d) {
+                $d = ORM::for_table('tbl_appconfig')->create();
+                $d->setting = 'theme';
+                $d->value = 'default';
+                $d->save();
+                $config['theme'] = 'default';
+            }
+        }
+        
         $ui->assign('template_files', $templates);
         $ui->assign('_c', $config);
         $ui->assign('php', $php);
