@@ -79,6 +79,7 @@
                                 <th>{Lang::T("Plan Name")}</th>
                                 <th>{Lang::T("Type")}</th>
                                 <th>{Lang::T("Created On")}</th>
+                                <th>{Lang::T("Starts On")}</th>
                                 <th>{Lang::T("Expires On")}</th>
                                 <th>{Lang::T("Method")}</th>
                                 <th>{Lang::T("Connected Devices")}</th>
@@ -112,6 +113,7 @@
 
                                     </td>
                                     <td>{$ds['type']}</td>
+                                    <td>{Lang::dateAndTimeFormat(date('Y-m-d', strtotime($ds['created_at'])), date('H:i', strtotime($ds['created_at'])))}</td>
                                     <td>{Lang::dateAndTimeFormat($ds['recharged_on'],$ds['recharged_time'])}</td>
                                     <td>{Lang::dateAndTimeFormat($ds['expiration'],$ds['time'])}</td>
                                     <td>{$ds['method']}</td>

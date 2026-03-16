@@ -1120,19 +1120,22 @@ switch ($action) {
         } else {
             $ui->assign('plans', []);
         }
-        $query = ORM::for_table('tbl_user_recharges')->order_by_desc('id');
+        $query = ORM::for_table('tbl_user_recharges')
+            ->select_many('tbl_user_recharges.*', 'tbl_transactions.created_at')
+            ->left_outer_join('tbl_transactions', ['tbl_user_recharges.invoice', '=', 'tbl_transactions.invoice'])
+            ->order_by_desc('tbl_user_recharges.id');
 
         if ($search != '') {
-            $query->where_like("username", "%$search%");
+            $query->where_like("tbl_user_recharges.username", "%$search%");
         }
         if (!empty($router)) {
-            $query->where('routers', $router);
+            $query->where('tbl_user_recharges.routers', $router);
         }
         if (!empty($plan)) {
-            $query->where('plan_id', $plan);
+            $query->where('tbl_user_recharges.plan_id', $plan);
         }
         if (!empty($status) && $status != '-') {
-            $query->where('status', $status);
+            $query->where('tbl_user_recharges.status', $status);
         }
         $d = Paginator::findMany($query, ['search' => $search], 25, $append_url);
 

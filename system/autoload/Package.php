@@ -335,6 +335,8 @@ class Package
             } else {
                 $t->admin_id = '0';
             }
+            // Set created_at to current timestamp (when transaction was actually created)
+            $t->created_at = date('Y-m-d H:i:s');
             $t->save();
 
             if ($p['validity_unit'] == 'Period') {
@@ -689,7 +691,8 @@ class Package
         $invoice .= Lang::pads(Lang::T('Username'), $in['username'], ' ') . "\n";
         $invoice .= Lang::pads(Lang::T('Password'), '**********', ' ') . "\n";
         if ($in['type'] != 'Balance') {
-            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
+            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat(date('Y-m-d', strtotime($in['created_at'])), date('H:i', strtotime($in['created_at']))), ' ') . "\n";
+            $invoice .= Lang::pads(Lang::T('Starts On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
             $invoice .= Lang::pads(Lang::T('Expires On'), Lang::dateAndTimeFormat($in['expiration'], $in['time']), ' ') . "\n";
         }
         $invoice .= Lang::pad("", '=') . "\n";
@@ -736,7 +739,8 @@ class Package
         $invoice .= Lang::pads(Lang::T('Username'), $in['username'], ' ') . "\n";
         $invoice .= Lang::pads(Lang::T('Password'), '**********', ' ') . "\n";
         if ($in['type'] != 'Balance') {
-            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
+            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat(date('Y-m-d', strtotime($in['created_at'])), date('H:i', strtotime($in['created_at']))), ' ') . "\n";
+            $invoice .= Lang::pads(Lang::T('Starts On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
             $invoice .= Lang::pads(Lang::T('Expires On'), Lang::dateAndTimeFormat($in['expiration'], $in['time']), ' ') . "\n";
         }
         $invoice .= Lang::pad("", '=') . "\n";
