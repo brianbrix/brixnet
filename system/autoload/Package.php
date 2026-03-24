@@ -37,7 +37,7 @@ class Package
             return;
         }
 
-        // IMPORTANT: customer_id=0 is valid for voucher-only recharges.
+        // IMPORTANT: customer_id=0 is valid for voucher-only recharges. in php 0==''->true
         if (($id_customer === '' || $id_customer === null) || ($router_name === '' || $router_name === null) || ($plan_id === '' || $plan_id === null)) {
             return false;
         }

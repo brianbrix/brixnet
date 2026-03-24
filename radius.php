@@ -300,10 +300,10 @@ try {
                                     $v->save();
                                     process_radiust_rest($tur, $code);
                                 } else {
-                                    show_radius_result(['Reply-Message' => 'Voucher activation failed on tur'], 401);
+                                    show_radius_result(['Reply-Message' => 'Voucher activation failed.'], 401);
                                 }
                             } else {
-                                show_radius_result(['Reply-Message' => 'Voucher activation failed on recharge.'], 401);
+                                show_radius_result(['Reply-Message' => 'Voucher activation failed.'], 401);
                             }
                         } else {
                             show_radius_result(['Reply-Message' => 'Voucher Expired...'], 401);
