@@ -199,7 +199,7 @@ class Radius
     {
         // FreeRADIUS stores acctstoptime as NULL OR '0000-00-00 00:00:00' for open sessions.
         // We must handle both cases to correctly detect active sessions.
-        $acct = ORM::for_table('radacct', 'radius')
+        $acct = ORM::for_table('radacct')
             ->where('username', $customer['username'])
             ->where_raw('(acctstoptime IS NULL OR acctstoptime = \'0000-00-00 00:00:00\')')
             ->order_by_desc('acctstarttime')
@@ -240,30 +240,30 @@ class Radius
 
     public function getTableNas()
     {
-        return ORM::for_table('nas', 'radius');
+        return ORM::for_table('nas');
     }
     public function getTableAcct()
     {
-        return ORM::for_table('radacct', 'radius');
+        return ORM::for_table('radacct');
     }
     public function getTableCustomer()
     {
-        return ORM::for_table('radcheck', 'radius');
+        return ORM::for_table('radcheck');
     }
 
     public function getTableCustomerAttr()
     {
-        return ORM::for_table('radreply', 'radius');
+        return ORM::for_table('radreply');
     }
 
     public function getTablePackage()
     {
-        return ORM::for_table('radgroupreply', 'radius');
+        return ORM::for_table('radgroupreply');
     }
 
     public function getTableUserPackage()
     {
-        return ORM::for_table('radusergroup', 'radius');
+        return ORM::for_table('radusergroup');
     }
 
     public function nasAdd($name, $ip, $ports, $secret, $routers = "", $description = "", $type = 'other', $server = null, $community = null)

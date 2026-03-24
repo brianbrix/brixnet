@@ -273,35 +273,43 @@ try {
                 die();
             }
             header("HTTP/1.1 200 ok");
-            $d = ORM::for_table('rad_acct')
-                ->whereRaw("BINARY username = '$username' AND macaddr = '" . _post('macAddr') . "' AND nasid = '" . _post('nasid') . "'")
+            $acctSessionId = _post('acctSessionId');
+            $nasIpAddress = _post('nasIpAddress');
+            $d = ORM::for_table('radacct')
+                ->whereRaw("BINARY username = '$username' AND acctsessionid = '$acctSessionId' AND nasipaddress = '$nasIpAddress'")
                 ->findOne();
             if (!$d) {
-                $d = ORM::for_table('rad_acct')->create();
+                $d = ORM::for_table('radacct')->create();
             }
             $acctOutputOctets = _post('acctOutputOctets', 0);
             $acctInputOctets = _post('acctInputOctets', 0);
             if ($acctOutputOctets !== false && $acctInputOctets !== false) {
-                $d->acctOutputOctets += intval($acctOutputOctets);
-                $d->acctInputOctets += intval($acctInputOctets);
+                $d->acctoutputoctets += intval($acctOutputOctets);
+                $d->acctinputoctets += intval($acctInputOctets);
             } else {
-                $d->acctOutputOctets = 0;
-                $d->acctInputOctets = 0;
+                $d->acctoutputoctets = 0;
+                $d->acctinputoctets = 0;
             }
-            $d->acctsessionid = _post('acctSessionId');
+            $d->acctsessionid = $acctSessionId;
+            $d->acctuniqueid = md5($acctSessionId . '|' . $username . '|' . $nasIpAddress);
             $d->username = $username;
             $d->realm = _post('realm');
-            $d->nasipaddress = _post('nasIpAddress');
+            $d->nasipaddress = $nasIpAddress;
             $d->acctsessiontime = intval(_post('acctSessionTime'));
-            $d->nasid = _post('nasid');
+            $d->calledstationid = _post('nasid');
             $d->nasportid = _post('nasPortId');
             $d->nasporttype = _post('nasPortType');
             $d->framedipaddress = _post('framedIPAddress');
-            if (in_array(_post('acctStatusType'), ['Start', 'Stop'])) {
-                $d->acctstatustype = _post('acctStatusType');
+            $d->callingstationid = _post('macAddr');
+            $status = _post('acctStatusType');
+            if ($status == 'Start') {
+                $d->acctstarttime = date('Y-m-d H:i:s');
+                $d->acctstoptime = null;
+            } else if ($status == 'Interim-Update') {
+                $d->acctupdatetime = date('Y-m-d H:i:s');
+            } else if ($status == 'Stop') {
+                $d->acctstoptime = date('Y-m-d H:i:s');
             }
-            $d->macaddr = _post('macAddr');
-            $d->dateAdded = date('Y-m-d H:i:s');
             // pastikan data akunting yang disimpan memang customer aktif phpnuxbill
             $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username' AND `status` = 'on' AND `routers` = 'radius'")->find_one();
             if (!$tur) {
@@ -317,7 +325,7 @@ try {
                 if (_post('acctStatusType') == 'Start') {
                     $plan = ORM::for_table('tbl_plans')->where('id', $tur['plan_id'])->find_one();
                     if ($plan['limit_type'] == "Data_Limit" || $plan['limit_type'] == "Both_Limit") {
-                        $totalUsage = $d['acctOutputOctets'] + $d['acctInputOctets'];
+                        $totalUsage = $d['acctoutputoctets'] + $d['acctinputoctets'];
                         $attrs['reply:Mikrotik-Total-Limit'] = Text::convertDataUnit($plan['data_limit'], $plan['data_unit']) - $totalUsage;
                         if ($attrs['reply:Mikrotik-Total-Limit'] < 0) {
                             $attrs['reply:Mikrotik-Total-Limit'] = 0;
@@ -357,8 +365,8 @@ function process_radiust_rest($tur, $code)
     $plan = ORM::for_table('tbl_plans')->where('id', $tur['plan_id'])->find_one();
     $bw = ORM::for_table("tbl_bandwidth")->find_one($plan['id_bw']);
     // Count User Onlines
-    $USRon = ORM::for_table('rad_acct')
-        ->whereRaw("BINARY username = '" . $tur['username'] . "' AND acctStatusType = 'Start'")
+    $USRon = ORM::for_table('radacct')
+        ->whereRaw("BINARY username = '" . $tur['username'] . "' AND (acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")
         ->find_array();
     // get all the IP
     $ips = array_column($USRon, 'framedipaddress');
@@ -405,8 +413,11 @@ function process_radiust_rest($tur, $code)
 
     if ($plan['typebp'] == "Limited") {
         if ($plan['limit_type'] == "Data_Limit" || $plan['limit_type'] == "Both_Limit") {
-            $raddact = ORM::for_table('rad_acct')->whereRaw("BINARY username = '$tur[username]'")->where('acctstatustype', 'Start')->find_one();
-            $totalUsage = intval($raddact['acctOutputOctets']) + intval($raddact['acctInputOctets']);
+            $raddact = ORM::for_table('radacct')
+                ->whereRaw("BINARY username = '$tur[username]'")
+                ->where_raw("(acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")
+                ->find_one();
+            $totalUsage = intval($raddact['acctoutputoctets']) + intval($raddact['acctinputoctets']);
             $attrs['reply:Mikrotik-Total-Limit'] = Text::convertDataUnit($plan['data_limit'], $plan['data_unit']) - $totalUsage;
             if ($attrs['reply:Mikrotik-Total-Limit'] < 0) {
                 $attrs['reply:Mikrotik-Total-Limit'] = 0;

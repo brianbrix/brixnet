@@ -418,7 +418,7 @@ function checkFreeRadiusService() {
 function checkRadiusDatabaseActivity() {
     // Check for recent radius accounting entries (last 5 minutes)
     try {
-        $recent = ORM::for_table('radacct', 'radius')
+            $recent = ORM::for_table('radacct')
             ->where_gte('acctstarttime', date('Y-m-d H:i:s', strtotime('-5 minutes')))
             ->count();
         

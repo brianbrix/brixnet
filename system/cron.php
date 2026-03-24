@@ -137,16 +137,22 @@ foreach ($d as $ds) {
 //Cek interim-update radiusrest
 if ($config['frrest_interim_update'] != 0) {
 
-    $r_a = ORM::for_table('rad_acct')
-        ->whereRaw("BINARY acctstatustype = 'Start' OR acctstatustype = 'Interim-Update'")
-        ->where_lte('dateAdded', date("Y-m-d H:i:s"))->find_many();
+    $r_a = ORM::for_table('radacct')
+        ->where_raw("(acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")
+        ->find_many();
 
     foreach ($r_a as $ra) {
         $interval = $_c['frrest_interim_update'] * 60;
-        $timeUpdate = strtotime($ra['dateAdded']) + $interval;
+        $anchorTime = !empty($ra['acctupdatetime']) && $ra['acctupdatetime'] !== '0000-00-00 00:00:00'
+            ? $ra['acctupdatetime']
+            : $ra['acctstarttime'];
+        if (empty($anchorTime) || $anchorTime === '0000-00-00 00:00:00') {
+            continue;
+        }
+        $timeUpdate = strtotime($anchorTime) + $interval;
         $timeNow = strtotime(date("Y-m-d H:i:s"));
         if ($timeNow >= $timeUpdate) {
-            $ra->acctstatustype = 'Stop';
+            $ra->acctstoptime = date("Y-m-d H:i:s");
             $ra->save();
         }
     }

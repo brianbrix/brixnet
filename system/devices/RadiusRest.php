@@ -32,10 +32,10 @@ class RadiusRest {
     {
         // set zero data usage
         if ($plan['typebp'] == "Limited" && ($plan['limit_type'] == "Data_Limit" || $plan['limit_type'] == "Both_Limit")) {
-            $cs = ORM::for_table("rad_acct")->where('username', $customer['username'])->findMany();
+            $cs = ORM::for_table("radacct")->where('username', $customer['username'])->findMany();
             foreach ($cs as $c) {
-                $c->acctOutputOctets = 0;
-                $c->acctInputOctets = 0;
+                $c->acctoutputoctets = 0;
+                $c->acctinputoctets = 0;
                 $c->save();
             }
         }
@@ -64,15 +64,15 @@ class RadiusRest {
     // check if customer is online
     function online_customer($customer, $router_name)
     {
-        // RadiusRest uses rad_acct table with acctstatustype field.
-        // Active sessions have acctstatustype = 'Start' or 'Interim-Update'.
-        // Cron marks them 'Stop' after frrest_interim_update minutes of no update.
+        // Active sessions are radacct rows without acctstoptime.
+        // Cron closes stale sessions by setting acctstoptime.
         global $config;
 
-        $acct = ORM::for_table('rad_acct')
+        $acct = ORM::for_table('radacct')
             ->where('username', $customer['username'])
-            ->where_raw("BINARY acctstatustype = 'Start' OR acctstatustype = 'Interim-Update'")
-            ->order_by_desc('dateAdded')
+            ->where_raw("(acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")
+            ->order_by_desc('acctupdatetime')
+            ->order_by_desc('acctstarttime')
             ->find_one();
 
         if (empty($acct)) {
@@ -86,9 +86,20 @@ class RadiusRest {
             : 30;
         $stale_threshold = $interim_minutes * 60 * 2;
 
-        $lastUpdate = strtotime($acct['dateAdded']);
-        if ($lastUpdate !== false) {
-            return (time() - $lastUpdate) < $stale_threshold;
+        $updateTime = $acct['acctupdatetime'];
+        if (!empty($updateTime) && $updateTime !== '0000-00-00 00:00:00') {
+            $lastUpdate = strtotime($updateTime);
+            if ($lastUpdate !== false) {
+                return (time() - $lastUpdate) < $stale_threshold;
+            }
+        }
+
+        $startTime = $acct['acctstarttime'];
+        if (!empty($startTime) && $startTime !== '0000-00-00 00:00:00') {
+            $lastUpdate = strtotime($startTime);
+            if ($lastUpdate !== false) {
+                return (time() - $lastUpdate) < $stale_threshold;
+            }
         }
 
         return true;
