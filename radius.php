@@ -243,11 +243,51 @@ try {
                 if ($isVoucher || $v) {
                     if ($v) {
                         if ($v['status'] == 0) {
-                            if (Package::rechargeUser(0, $v['routers'], $v['id_plan'], "Voucher", $username)) {
+                            // Some vouchers may have empty/legacy router values.
+                            // Radius auth requires a valid router target for rechargeUser().
+                            $voucherRouter = trim((string)$v['routers']);
+                            if ($voucherRouter === '') {
+                                $voucherRouter = 'radius';
+                            }
+                            if (Package::rechargeUser(0, $voucherRouter, $v['id_plan'], "Voucher", $username)) {
                                 $v->status = "1";
                                 $v->used_date = date('Y-m-d H:i:s');
                                 $v->save();
-                                $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username'")->find_one();
+                                $tur = ORM::for_table('tbl_user_recharges')
+                                    ->whereRaw("BINARY username = '$username'")
+                                    ->where('plan_id', $v['id_plan'])
+                                    ->where('status', 'on')
+                                    ->order_by_desc('id')
+                                    ->find_one();
+                                if (!$tur) {
+                                    // Fallback recovery: if rechargeUser completed but no active
+                                    // recharge row exists, recreate one from latest transaction/plan
+                                    // to avoid false "Voucher activation failed" responses.
+                                    $plan = ORM::for_table('tbl_plans')->find_one($v['id_plan']);
+                                    $trx = ORM::for_table('tbl_transactions')
+                                        ->whereRaw("BINARY username = '$username'")
+                                        ->where('routers', $voucherRouter)
+                                        ->order_by_desc('id')
+                                        ->find_one();
+                                    if ($plan) {
+                                        $d = ORM::for_table('tbl_user_recharges')->create();
+                                        $d->customer_id = 0;
+                                        $d->username = $username;
+                                        $d->plan_id = $v['id_plan'];
+                                        $d->namebp = $plan['name_plan'];
+                                        $d->recharged_on = $trx ? $trx['recharged_on'] : date('Y-m-d');
+                                        $d->recharged_time = $trx ? $trx['recharged_time'] : date('H:i:s');
+                                        $d->expiration = $trx ? $trx['expiration'] : date('Y-m-d');
+                                        $d->time = $trx ? $trx['time'] : date('H:i:s');
+                                        $d->status = 'on';
+                                        $d->method = 'Voucher - ' . $username;
+                                        $d->routers = $voucherRouter;
+                                        $d->type = $plan['type'];
+                                        $d->admin_id = 0;
+                                        $d->save();
+                                        $tur = ORM::for_table('tbl_user_recharges')->find_one($d->id());
+                                    }
+                                }
                                 if ($tur) {
                                     process_radiust_rest($tur, $code);
                                 } else {
