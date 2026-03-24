@@ -249,7 +249,23 @@ class MikrotikHotspot
             return null;
         }
         $iport = explode(":", $ip);
-        return new RouterOS\Client($iport[0], $user, $pass, ($iport[1]) ? $iport[1] : null);
+        $port   = !empty($iport[1]) ? (int)$iport[1] : 8728;
+        // Port 8729 is RouterOS API-SSL — must negotiate TLS.
+        // Mikrotik uses a self-signed cert, so disable peer verification.
+        if ($port === 8729) {
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer'      => false,
+                    'verify_peer_name' => false,
+                ],
+            ]);
+            return new RouterOS\Client(
+                $iport[0], $user, $pass, $port, false, null,
+                \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS,
+                $context
+            );
+        }
+        return new RouterOS\Client($iport[0], $user, $pass, $port);
     }
 
     function removeHotspotUser($client, $username)
