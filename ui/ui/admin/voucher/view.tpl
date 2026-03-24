@@ -2,6 +2,33 @@
 
 <div class="row">
     <div class="col-md-6 col-sm-12 col-md-offset-3">
+        <div class="panel panel-hovered panel-info panel-stacked mb30">
+            <div class="panel-heading">{Lang::T('Voucher Details')}</div>
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-sm-6" style="margin-bottom: 12px;">
+                        <img src="{$voucher_qr_src}" alt="QR Code" style="max-width: 180px; width: 100%; border: 1px solid #ddd; padding: 8px; border-radius: 6px;">
+                    </div>
+                    <div class="col-sm-6">
+                        <p><b>{Lang::T('Voucher ID')}:</b> {$voucher['id']}</p>
+                        <p><b>{Lang::T('Code')}:</b> {$voucher['code']}</p>
+                        <p><b>{Lang::T('Plan')}:</b> {$plan['name_plan']}</p>
+                        <p><b>{Lang::T('Type')}:</b> {$voucher['type']}</p>
+                        <p><b>{Lang::T('Router')}:</b> {$voucher['routers']}</p>
+                        <p><b>{Lang::T('Status')}:</b> {if $voucher['status'] eq '1'}Used{else}Not Use{/if}</p>
+                        <p><b>{Lang::T('Created')}:</b> {if $voucher['created_at']}{Lang::dateTimeFormat($voucher['created_at'])}{/if}</p>
+                        <p><b>{Lang::T('Used Date')}:</b> {if $voucher['used_date']}{Lang::dateTimeFormat($voucher['used_date'])}{else}-{/if}</p>
+                    </div>
+                </div>
+                <div class="row" style="margin-top: 10px;">
+                    <div class="col-sm-12">
+                        <label>{Lang::T('Voucher Login URL')}</label>
+                        <input type="text" class="form-control" value="{$voucher_login_url}" readonly onclick="this.select();">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="panel panel-hovered panel-primary panel-stacked mb30">
             <div class="panel-body">
                 <form class="form-horizontal" method="post" action="{Text::url('')}plan/print" target="_blank">

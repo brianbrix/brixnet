@@ -116,7 +116,7 @@
                             <td style="background-color: black; color: black;"
                                 onmouseleave="this.style.backgroundColor = 'black';"
                                 onmouseenter="this.style.backgroundColor = 'white';">
-                                {$ds['code']}</td>
+                                <a href="{Text::url('')}plan/voucher-view/{$ds['id']}" style="color: inherit; text-decoration: none;">{$ds['code']}</a></td>
                             <td>{if $ds['status'] eq '0'} <label class="btn-tag btn-tag-success"> Not Use
                                 </label> {else} <label class="btn-tag btn-tag-danger">Used</label>
                                 {/if}</td>
@@ -132,10 +132,8 @@
                                 {/if}
                             </td>
                             <td>
-                                {if $ds['status'] neq '1'}
-                                    <a href="{Text::url('')}plan/voucher-view/{$ds['id']}" id="{$ds['id']}" style="margin: 0px;"
-                                        class="btn btn-success btn-xs">&nbsp;&nbsp;{Lang::T('View')}&nbsp;&nbsp;</a>
-                                {/if}
+                                <a href="{Text::url('')}plan/voucher-view/{$ds['id']}" id="{$ds['id']}" style="margin: 0px;"
+                                    class="btn btn-success btn-xs">&nbsp;&nbsp;{Lang::T('View')}&nbsp;&nbsp;</a>
                                 {if in_array($_admin['user_type'],['SuperAdmin','Admin'])}
                                     <a href="{Text::url('')}plan/voucher-delete/{$ds['id']}" id="{$ds['id']}"
                                         class="btn btn-danger btn-xs" onclick="return ask(this, '{Lang::T('Delete')}?')"><i

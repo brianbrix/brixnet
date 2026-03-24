@@ -943,6 +943,8 @@ switch ($action) {
         }
         $plan = ORM::for_table('tbl_plans')->find_one($voucher['id_plan']);
         if ($voucher && $plan) {
+            $portalBaseUrl = rtrim(APP_URL, '/');
+            $voucherLoginUrl = $portalBaseUrl . '/?_route=login&code=' . rawurlencode($voucher['code']);
             $content = Lang::pad($config['CompanyName'], ' ', 2) . "\n";
             $content .= Lang::pad($config['address'], ' ', 2) . "\n";
             $content .= Lang::pad($config['phone'], ' ', 2) . "\n";
@@ -956,6 +958,10 @@ switch ($action) {
             $content .= Lang::pad("", '=') . "\n";
             $content .= Lang::pad($config['note'], ' ', 2) . "\n";
             $ui->assign('print', $content);
+            $ui->assign('voucher', $voucher);
+            $ui->assign('plan', $plan);
+            $ui->assign('voucher_login_url', $voucherLoginUrl);
+            $ui->assign('voucher_qr_src', 'qrcode/?data=' . rawurlencode($voucherLoginUrl));
             $config['printer_cols'] = 30;
             $content = Lang::pad($config['CompanyName'], ' ', 2) . "\n";
             $content .= Lang::pad($config['address'], ' ', 2) . "\n";
