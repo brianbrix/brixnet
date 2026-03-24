@@ -1213,7 +1213,8 @@ switch ($action) {
             return $value !== '' && $value !== null;
         });
         if (!empty($usernames)) {
-            $activeSessions = ORM::for_table('radacct')
+            // Must query the radius DB — FreeRADIUS writes radacct there, not to the billing DB
+            $activeSessions = ORM::for_table('radacct', 'radius')
                 ->select('username')
                 ->select_expr('COUNT(*)', 'device_count')
                 ->where_raw("(acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")

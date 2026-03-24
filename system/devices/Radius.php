@@ -450,16 +450,24 @@ class Radius
             $this->upsertCustomer($customer['username'], 'Cleartext-Password',  $customer['password']);
         }
         if ($plan['type'] == 'PPPOE') {
-            $this->upsertCustomer($customer['username'], 'Simultaneous-Use', 1);
-            $this->upsertCustomer($customer['username'], 'Port-Limit', 1);
+            $limit = 1;
+            // radcheck: FreeRADIUS simul_count enforcement
+            $this->upsertCustomer($customer['username'], 'Simultaneous-Use', $limit);
+            $this->upsertCustomer($customer['username'], 'Port-Limit', $limit);
+            // radreply: sent to Mikrotik in Access-Accept so the router enforces it natively
+            $this->upsertCustomerAttr($customer['username'], 'Port-Limit', $limit);
         } elseif (!empty($plan['shared_users']) && (int)$plan['shared_users'] > 0) {
-            $this->upsertCustomer($customer['username'], 'Simultaneous-Use', (int)$plan['shared_users']);
-            // Mikrotik Specific
-            $this->upsertCustomer($customer['username'], 'Port-Limit', (int)$plan['shared_users']);
+            $limit = (int)$plan['shared_users'];
+            // radcheck: FreeRADIUS simul_count enforcement
+            $this->upsertCustomer($customer['username'], 'Simultaneous-Use', $limit);
+            $this->upsertCustomer($customer['username'], 'Port-Limit', $limit);
+            // radreply: sent to Mikrotik in Access-Accept so the router enforces it natively
+            $this->upsertCustomerAttr($customer['username'], 'Port-Limit', $limit);
         } else {
             // shared_users is 0 or NULL — no concurrent-session limit
             $this->delAtribute($this->getTableCustomer(), 'Simultaneous-Use', 'username', $customer['username']);
             $this->delAtribute($this->getTableCustomer(), 'Port-Limit', 'username', $customer['username']);
+            $this->delAtribute($this->getTableCustomerAttr(), 'Port-Limit', 'username', $customer['username']);
         }
         $this->upsertCustomer($customer['username'], 'Mikrotik-Wireless-Comment', $customer['fullname']);
         return true;
