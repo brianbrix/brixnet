@@ -449,9 +449,18 @@ class Radius
         } else {
             $this->upsertCustomer($customer['username'], 'Cleartext-Password',  $customer['password']);
         }
-        $this->upsertCustomer($customer['username'], 'Simultaneous-Use', ($plan['type'] == 'PPPOE') ? 1 : $plan['shared_users']);
-        // Mikrotik Spesific
-        $this->upsertCustomer($customer['username'], 'Port-Limit', ($plan['type'] == 'PPPOE') ? 1 : $plan['shared_users']);
+        if ($plan['type'] == 'PPPOE') {
+            $this->upsertCustomer($customer['username'], 'Simultaneous-Use', 1);
+            $this->upsertCustomer($customer['username'], 'Port-Limit', 1);
+        } elseif (!empty($plan['shared_users']) && (int)$plan['shared_users'] > 0) {
+            $this->upsertCustomer($customer['username'], 'Simultaneous-Use', (int)$plan['shared_users']);
+            // Mikrotik Specific
+            $this->upsertCustomer($customer['username'], 'Port-Limit', (int)$plan['shared_users']);
+        } else {
+            // shared_users is 0 or NULL — no concurrent-session limit
+            $this->delAtribute($this->getTableCustomer(), 'Simultaneous-Use', 'username', $customer['username']);
+            $this->delAtribute($this->getTableCustomer(), 'Port-Limit', 'username', $customer['username']);
+        }
         $this->upsertCustomer($customer['username'], 'Mikrotik-Wireless-Comment', $customer['fullname']);
         return true;
     }
@@ -518,19 +527,32 @@ class Radius
             return null;
         }
         /**
-         * Fix loop to all Nas but still detecting Hotspot Multylogin from other Nas
+         * Find all open sessions for this user in the radius DB and send CoA
+         * disconnect to every NAS that has an active session.
          */
-        $act = ORM::for_table('radacct')->where_raw("acctstoptime IS NULL")->where('username', $username)->find_one();
-        $nas = $this->getTableNas()->where('nasname', $act['nasipaddress'])->find_many();
-        $count = count($nas) * 15;
-        set_time_limit($count);
+        $acts = ORM::for_table('radacct')
+            ->where_raw("(acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")
+            ->where('username', $username)
+            ->find_many();
+        if (empty($acts)) {
+            return [];
+        }
         $result = [];
-        foreach ($nas as $n) {
-            $port = 3799;
-            if (!empty($n['ports'])) {
-                $port = $n['ports'];
+        foreach ($acts as $act) {
+            $nas = $this->getTableNas()->where('nasname', $act['nasipaddress'])->find_many();
+            $count = (count($nas) ?: 1) * 15;
+            set_time_limit($count);
+            foreach ($nas as $n) {
+                $port = !empty($n['ports']) ? (int)$n['ports'] : 3799;
+                $payload = escapeshellarg(
+                    'User-Name = ' . $username . ',Framed-IP-Address = ' . $act['framedipaddress']
+                );
+                $nasAddr = escapeshellarg(trim($n['nasname']) . ':' . $port);
+                $secret  = escapeshellarg($n['secret']);
+                $result[] = $n['nasname'] . ': ' . @shell_exec(
+                    'echo ' . $payload . ' | radclient -x ' . $nasAddr . ' disconnect ' . $secret
+                );
             }
-            $result[] = $n['nasname'] . ': ' . @shell_exec("echo 'User-Name = $username,Framed-IP-Address = " . $act['framedipaddress'] . "' | radclient -x " . trim($n['nasname']) . ":$port disconnect '" . $n['secret'] . "'");
         }
         return $result;
     }
