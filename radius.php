@@ -250,15 +250,20 @@ try {
                                 $voucherRouter = 'radius';
                             }
                             if (Package::rechargeUser(0, $voucherRouter, $v['id_plan'], "Voucher", $username)) {
-                                $v->status = "1";
-                                $v->used_date = date('Y-m-d H:i:s');
-                                $v->save();
                                 $tur = ORM::for_table('tbl_user_recharges')
                                     ->whereRaw("BINARY username = '$username'")
                                     ->where('plan_id', $v['id_plan'])
                                     ->where('status', 'on')
                                     ->order_by_desc('id')
                                     ->find_one();
+                                if (!$tur) {
+                                    // Broader fallback: use latest active recharge for username.
+                                    $tur = ORM::for_table('tbl_user_recharges')
+                                        ->whereRaw("BINARY username = '$username'")
+                                        ->where('status', 'on')
+                                        ->order_by_desc('id')
+                                        ->find_one();
+                                }
                                 if (!$tur) {
                                     // Fallback recovery: if rechargeUser completed but no active
                                     // recharge row exists, recreate one from latest transaction/plan
@@ -289,6 +294,10 @@ try {
                                     }
                                 }
                                 if ($tur) {
+                                    // Consume voucher only after activation has a valid recharge row.
+                                    $v->status = "1";
+                                    $v->used_date = date('Y-m-d H:i:s');
+                                    $v->save();
                                     process_radiust_rest($tur, $code);
                                 } else {
                                     show_radius_result(['Reply-Message' => 'Voucher activation failed'], 401);
