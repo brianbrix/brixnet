@@ -739,9 +739,11 @@ switch ($action) {
 
         $voucher = [];
         $n = 1;
+        $portalBaseUrl = rtrim(!empty($config['site_url']) ? $config['site_url'] : APP_URL, '/');
         foreach ($v as $vs) {
+            $voucherLoginUrl = $portalBaseUrl . '/hotspot/login.html?mode=voucher&u=' . rawurlencode($vs['code']) . '&a=1';
             $temp = $template;
-            $temp = str_replace('[[qrcode]]', '<img src="qrcode/?data=' . $vs['code'] . '">', $temp);
+            $temp = str_replace('[[qrcode]]', '<img src="qrcode/?data=' . rawurlencode($voucherLoginUrl) . '">', $temp);
             $temp = str_replace('[[price]]', Lang::moneyFormat($vs['price']), $temp);
             $temp = str_replace('[[voucher_code]]', $vs['code'], $temp);
             $temp = str_replace('[[plan]]', $vs['name_plan'], $temp);
@@ -848,10 +850,12 @@ switch ($action) {
 
                 $voucherHtmls = [];
                 $n = 1;
+                $portalBaseUrl = rtrim(!empty($config['site_url']) ? $config['site_url'] : APP_URL, '/');
 
                 foreach ($vouchersToPrint as $vs) {
+                    $voucherLoginUrl = $portalBaseUrl . '/hotspot/login.html?mode=voucher&u=' . rawurlencode($vs['code']) . '&a=1';
                     $temp = $template;
-                    $temp = str_replace('[[qrcode]]', '<img src="qrcode/?data=' . $vs['code'] . '">', $temp);
+                    $temp = str_replace('[[qrcode]]', '<img src="qrcode/?data=' . rawurlencode($voucherLoginUrl) . '">', $temp);
                     $temp = str_replace('[[price]]', Lang::moneyFormat($vs['price']), $temp);
                     $temp = str_replace('[[voucher_code]]', $vs['code'], $temp);
                     $temp = str_replace('[[plan]]', $vs['name_plan'], $temp);
