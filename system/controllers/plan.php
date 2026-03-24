@@ -1197,44 +1197,80 @@ switch ($action) {
         $d = Paginator::findMany($query, ['search' => $search], 25, $append_url);
 
         $activeDeviceCounts = [];
-        $planSharedLimits = [];
-        $usernames = [];
-        $planIds = [];
+        $planSharedLimits  = [];
+        $planDevices       = [];
+        $planIds           = [];
         foreach ($d as $row) {
-            $usernames[] = $row['username'];
             $planIds[] = $row['plan_id'];
         }
-        $usernames = array_unique($usernames);
-        $usernames = array_filter($usernames, function ($value) {
-            return $value !== '' && $value !== null;
-        });
-        $planIds = array_unique($planIds);
-        $planIds = array_filter($planIds, function ($value) {
-            return $value !== '' && $value !== null;
-        });
-        if (!empty($usernames)) {
+        $planIds = array_unique(array_filter($planIds, function ($v) {
+            return $v !== '' && $v !== null;
+        }));
+
+        if (!empty($planIds)) {
+            $planRecords = ORM::for_table('tbl_plans')
+                ->select('id')
+                ->select('shared_users')
+                ->select('device')
+                ->where_in('id', $planIds)
+                ->find_many();
+            foreach ($planRecords as $planRecord) {
+                $planSharedLimits[$planRecord['id']] = (int)$planRecord['shared_users'];
+                $planDevices[$planRecord['id']]      = $planRecord['device'];
+            }
+        }
+
+        // Split billing rows by device type:
+        // — Radius/PPPOE: session count from FreeRADIUS radacct
+        // — MikrotikHotspot: sessions live on the router, not in radacct (always 0 there)
+        $radiusUsernames = [];
+        $hotspotRouters  = [];  // router_name => true
+        foreach ($d as $row) {
+            if (($planDevices[$row['plan_id']] ?? '') === 'MikrotikHotspot') {
+                if (!empty($row['routers'])) {
+                    $hotspotRouters[$row['routers']] = true;
+                }
+            } else {
+                if (!empty($row['username'])) {
+                    $radiusUsernames[] = $row['username'];
+                }
+            }
+        }
+
+        if (!empty($radiusUsernames)) {
+            $radiusUsernames = array_unique($radiusUsernames);
             // Must query the radius DB — FreeRADIUS writes radacct there, not to the billing DB
             $activeSessions = ORM::for_table('radacct', 'radius')
                 ->select('username')
                 ->select_expr('COUNT(*)', 'device_count')
                 ->where_raw("(acctstoptime IS NULL OR acctstoptime = '0000-00-00 00:00:00')")
-                ->where_in('username', $usernames)
+                ->where_in('username', $radiusUsernames)
                 ->group_by('username')
                 ->find_many();
             foreach ($activeSessions as $session) {
                 $activeDeviceCounts[$session['username']] = (int)$session['device_count'];
             }
         }
-        if (!empty($planIds)) {
-            $planRecords = ORM::for_table('tbl_plans')
-                ->select('id')
-                ->select('shared_users')
-                ->where_in('id', $planIds)
-                ->find_many();
-            foreach ($planRecords as $planRecord) {
-                $planSharedLimits[$planRecord['id']] = (int)$planRecord['shared_users'];
+
+        // Query each Mikrotik Hotspot router once and get live session counts
+        if (!empty($hotspotRouters)) {
+            global $DEVICE_PATH;
+            $dvcFile = $DEVICE_PATH . DIRECTORY_SEPARATOR . 'MikrotikHotspot.php';
+            if (file_exists($dvcFile)) {
+                require_once $dvcFile;
+                foreach (array_keys($hotspotRouters) as $routerName) {
+                    try {
+                        $routerCounts = (new MikrotikHotspot())->getActiveSessionCounts($routerName);
+                        foreach ($routerCounts as $hsUser => $hsCount) {
+                            $activeDeviceCounts[$hsUser] = $hsCount;
+                        }
+                    } catch (Throwable $e) {
+                        // Router unreachable — skip, display will show 0
+                    }
+                }
             }
         }
+
         $ui->assign('active_devices', $activeDeviceCounts);
         $ui->assign('plan_shared_limits', $planSharedLimits);
         run_hook('view_list_billing'); #HOOK

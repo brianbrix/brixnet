@@ -33,11 +33,11 @@ class MikrotikHotspot
     {
         $mikrotik = $this->info($plan['routers']);
         $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-		$isExp = ORM::for_table('tbl_plans')->select("id")->where('plan_expired', $plan['id'])->find_one();
-        $this->removeHotspotUser($client, $customer['username']);
-		if ($isExp){
+        // Always kick ALL existing active sessions before recreating the user entry.
+        // Without this, old sessions persist and exhaust the shared-users limit
+        // on the profile, making it look like more connections than allowed.
         $this->removeHotspotActiveUser($client, $customer['username']);
-		}
+        $this->removeHotspotUser($client, $customer['username']);
         $this->addHotspotUser($client, $plan, $customer);
     }
 	
@@ -129,7 +129,7 @@ class MikrotikHotspot
         $client->sendSync(
             $addRequest
                 ->setArgument('name', $plan['name_plan'])
-                ->setArgument('shared-users', $plan['shared_users'])
+                ->setArgument('shared-users', max(1, (int)$plan['shared_users']))
                 ->setArgument('rate-limit', $rate)
         );
     }
@@ -213,7 +213,7 @@ class MikrotikHotspot
                 $setRequest
                     ->setArgument('numbers', $profileID)
                     ->setArgument('name', $new_plan['name_plan'])
-                    ->setArgument('shared-users', $new_plan['shared_users'])
+                    ->setArgument('shared-users', max(1, (int)$new_plan['shared_users']))
                     ->setArgument('rate-limit', $rate)
                     ->setArgument('on-login', $new_plan['on_login'])
                     ->setArgument('on-logout', $new_plan['on_logout'])
@@ -399,14 +399,25 @@ class MikrotikHotspot
         if ($_app_stage == 'Demo') {
             return null;
         }
+        // Collect ALL active session IDs for this user, then remove them all.
+        // The old code used getProperty() which only returned the first ID,
+        // leaving additional sessions alive and breaking shared-users enforcement.
         $onlineRequest = new RouterOS\Request('/ip/hotspot/active/print');
         $onlineRequest->setArgument('.proplist', '.id');
         $onlineRequest->setQuery(RouterOS\Query::where('user', $username));
-        $id = $client->sendSync($onlineRequest)->getProperty('.id');
-
-        $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
-        $removeRequest->setArgument('numbers', $id);
-        $client->sendSync($removeRequest);
+        $response = $client->sendSync($onlineRequest);
+        $ids = [];
+        foreach ($response as $entry) {
+            $id = $entry->getProperty('.id');
+            if (!empty($id)) {
+                $ids[] = $id;
+            }
+        }
+        if (!empty($ids)) {
+            $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
+            $removeRequest->setArgument('numbers', implode(',', $ids));
+            $client->sendSync($removeRequest);
+        }
     }
 
     function getIpHotspotUser($client, $username)
@@ -420,5 +431,31 @@ class MikrotikHotspot
             RouterOS\Query::where('user', $username)
         );
         return $client->sendSync($printRequest)->getProperty('address');
+    }
+
+    /**
+     * Returns username => active-session-count for ALL users currently online
+     * on the given router.  Used by the admin active-billing view so it shows
+     * live counts instead of the always-empty radacct query.
+     */
+    function getActiveSessionCounts($router_name)
+    {
+        global $_app_stage;
+        if ($_app_stage == 'Demo') {
+            return [];
+        }
+        $mikrotik = $this->info($router_name);
+        $client   = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $printRequest = new RouterOS\Request('/ip/hotspot/active/print');
+        $printRequest->setArgument('.proplist', 'user');
+        $response = $client->sendSync($printRequest);
+        $counts = [];
+        foreach ($response as $entry) {
+            $user = $entry->getProperty('user');
+            if (!empty($user)) {
+                $counts[$user] = ($counts[$user] ?? 0) + 1;
+            }
+        }
+        return $counts;
     }
 }
