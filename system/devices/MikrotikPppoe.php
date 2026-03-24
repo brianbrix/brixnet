@@ -335,12 +335,17 @@ class MikrotikPppoe
         $iport = explode(":", $ip);
         $port   = !empty($iport[1]) ? (int)$iport[1] : 8728;
         // Port 8729 is RouterOS API-SSL — must negotiate TLS.
-        // Mikrotik uses a self-signed cert, so disable peer verification.
+        // RouterOS historically uses Anonymous DH (ADH) ciphers on this port,
+        // so we must enable ADH via @SECLEVEL=0 for older firmware.
+        // Modern firmware uses standard TLS with a self-signed cert, handled
+        // by verify_peer=false.
         if ($port === 8729) {
             $context = stream_context_create([
                 'ssl' => [
-                    'verify_peer'      => false,
-                    'verify_peer_name' => false,
+                    'verify_peer'       => false,
+                    'verify_peer_name'  => false,
+                    'allow_self_signed' => true,
+                    'ciphers'           => 'ADH:HIGH:MEDIUM:@SECLEVEL=0',
                 ],
             ]);
             return new RouterOS\Client(
