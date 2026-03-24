@@ -234,9 +234,13 @@ try {
                 }
                 process_radiust_rest($tur, $code);
             } else {
-                if ($isVoucher) {
-                    $username = Text::alphanumeric($username, "-_.,");
-                    $v = ORM::for_table('tbl_voucher')->whereRaw("BINARY code = '$username' AND routers = 'radius'")->find_one();
+                // Fallback: if no active recharge was found, still try voucher lookup
+                // by code. Some deployments store voucher router names that are not
+                // exactly the literal string "radius".
+                $username = Text::alphanumeric($username, "-_.,");
+                $v = ORM::for_table('tbl_voucher')->whereRaw("BINARY code = '$username'")->find_one();
+
+                if ($isVoucher || $v) {
                     if ($v) {
                         if ($v['status'] == 0) {
                             if (Package::rechargeUser(0, $v['routers'], $v['id_plan'], "Voucher", $username)) {
