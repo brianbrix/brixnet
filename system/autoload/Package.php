@@ -10,35 +10,25 @@
 class Package
 {
     /**
-     * Recharge User account
-     * @param int   $id_customer customer id
+     * @param int   $id_customer String user identifier
      * @param string $router_name router name for this package
      * @param int   $plan_id plan id for this package
      * @param string $gateway payment gateway name
      * @param string $channel channel payment gateway
      * @param string $note additional notes
      * @param int   $quantity quantity to multiply plan benefits (default 1)
-     * @param string $custom_start_date custom start date (Y-m-d format, optional)
-     * @param string $custom_start_time custom start time (H:i format, optional)
      * @return boolean
      */
-    public static function rechargeUser($id_customer, $router_name, $plan_id, $gateway, $channel, $note = '', $quantity = 1, $custom_start_date = '', $custom_start_time = '')
+    public static function rechargeUser($id_customer, $router_name, $plan_id, $gateway, $channel, $note = '', $quantity = 1)
     {
         global $config, $admin, $c, $p, $b, $t, $d, $zero, $trx, $_app_stage, $isChangePlan;
         
         // Ensure quantity is at least 1
         $quantity = max(1, (int)$quantity);
         
-        // Use custom start date/time if provided, otherwise use current date/time
-        if (!empty($custom_start_date) && !empty($custom_start_time)) {
-            $date_only = $custom_start_date;
-            $time_only = $custom_start_time . ':00'; // Add seconds
-            $time = $custom_start_time . ':00';
-        } else {
-            $date_only = date("Y-m-d");
-            $time_only = date("H:i:s");
-            $time = date("H:i:s");
-        }
+        $date_only = date("Y-m-d");
+        $time_only = date("H:i:s");
+        $time = date("H:i:s");
         $inv = "";
         $isVoucher = false;
         $c = [];
@@ -47,7 +37,8 @@ class Package
             return;
         }
 
-        if ($id_customer == '' or $router_name == '' or $plan_id == '') {
+        // IMPORTANT: customer_id=0 is valid for voucher-only recharges.
+        if (($id_customer === '' || $id_customer === null) || ($router_name === '' || $router_name === null) || ($plan_id === '' || $plan_id === null)) {
             return false;
         }
         if (trim($gateway) == 'Voucher' && $id_customer == 0) {
@@ -199,15 +190,15 @@ class Package
             $date_exp = $exp_date->format('Y-m-d');
             $time = "23:59:59";
         } else if ($p['validity_unit'] == 'Days') {
-            $datetime = explode(' ', date("Y-m-d H:i:s", strtotime($date_only . ' ' . $time_only . ' +' . ($p['validity'] * $quantity) . ' day')));
+            $datetime = explode(' ', date("Y-m-d H:i:s", strtotime('+' . ($p['validity'] * $quantity) . ' day')));
             $date_exp = $datetime[0];
             $time = $datetime[1];
         } else if ($p['validity_unit'] == 'Hrs') {
-            $datetime = explode(' ', date("Y-m-d H:i:s", strtotime($date_only . ' ' . $time_only . ' +' . ($p['validity'] * $quantity) . ' hour')));
+            $datetime = explode(' ', date("Y-m-d H:i:s", strtotime('+' . ($p['validity'] * $quantity) . ' hour')));
             $date_exp = $datetime[0];
             $time = $datetime[1];
         } else if ($p['validity_unit'] == 'Mins') {
-            $datetime = explode(' ', date("Y-m-d H:i:s", strtotime($date_only . ' ' . $time_only . ' +' . ($p['validity'] * $quantity) . ' minute')));
+            $datetime = explode(' ', date("Y-m-d H:i:s", strtotime('+' . ($p['validity'] * $quantity) . ' minute')));
             $date_exp = $datetime[0];
             $time = $datetime[1];
         }
@@ -335,8 +326,6 @@ class Package
             } else {
                 $t->admin_id = '0';
             }
-            // Set created_at to current timestamp (when transaction was actually created)
-            $t->created_at = date('Y-m-d H:i:s');
             $t->save();
 
             if ($p['validity_unit'] == 'Period') {
@@ -691,8 +680,7 @@ class Package
         $invoice .= Lang::pads(Lang::T('Username'), $in['username'], ' ') . "\n";
         $invoice .= Lang::pads(Lang::T('Password'), '**********', ' ') . "\n";
         if ($in['type'] != 'Balance') {
-            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat(date('Y-m-d', strtotime($in['created_at'])), date('H:i', strtotime($in['created_at']))), ' ') . "\n";
-            $invoice .= Lang::pads(Lang::T('Starts On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
+            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
             $invoice .= Lang::pads(Lang::T('Expires On'), Lang::dateAndTimeFormat($in['expiration'], $in['time']), ' ') . "\n";
         }
         $invoice .= Lang::pad("", '=') . "\n";
@@ -739,8 +727,7 @@ class Package
         $invoice .= Lang::pads(Lang::T('Username'), $in['username'], ' ') . "\n";
         $invoice .= Lang::pads(Lang::T('Password'), '**********', ' ') . "\n";
         if ($in['type'] != 'Balance') {
-            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat(date('Y-m-d', strtotime($in['created_at'])), date('H:i', strtotime($in['created_at']))), ' ') . "\n";
-            $invoice .= Lang::pads(Lang::T('Starts On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
+            $invoice .= Lang::pads(Lang::T('Created On'), Lang::dateAndTimeFormat($in['recharged_on'], $in['recharged_time']), ' ') . "\n";
             $invoice .= Lang::pads(Lang::T('Expires On'), Lang::dateAndTimeFormat($in['expiration'], $in['time']), ' ') . "\n";
         }
         $invoice .= Lang::pad("", '=') . "\n";
