@@ -574,15 +574,15 @@ class Radius
         // TODO Burst mode [ 2M/1M 256K/128K 128K/64K 1s 1 64K/32K]
 
         if (!empty(trim($bw['burst']))) {
-            // burst format: 2M/1M 256K/128K 128K/64K 1s 1 64K/32K
-            $pattern = '/(\d+[KM])\/(\d+[KM]) (\d+[KM])\/(\d+[KM]) (\d+) (\d+) (\d+[KM])\/(\d+[KM])/';
+            // burst format: burst-rx/burst-tx burst-threshold-rx/burst-threshold-tx burst-time priority min-rx/min-tx
+            // e.g. stored as: 256K/128K 128K/64K 8s 1 64K/32K  (burst-time may have optional 's' suffix)
+            $pattern = '/(\d+[KMG])\/(\d+[KMG]) (\d+[KMG])\/(\d+[KMG]) (\d+s?) (\d+) (\d+[KMG])\/(\d+[KMG])/';
             preg_match($pattern, $bw['burst'], $matches);
             if (count($matches) == 9) {
-
                 $burst = $bw['rate_up'] . $unitup . "/" . $bw['rate_down'] . $unitdown . ' ' . $matches[1] . '/' . $matches[2] . ' ' . $matches[3] . '/' . $matches[4] . ' ' . $matches[5] . ' ' . $matches[6] . ' ' . $matches[7] . '/' . $matches[8];
                 $this->upsertCustomer($customer['username'], 'Mikrotik-Rate-Limit', $burst);
             } else {
-                _log("Unexpected burst format for customer " . $customer['username']);
+                _log("Unexpected burst format for customer " . $customer['username'] . ". Burst value: [" . $bw['burst'] . "]. Expected: burst-rx/burst-tx burst-threshold-rx/burst-threshold-tx burst-time priority min-rx/min-tx (e.g. 256K/128K 128K/64K 8s 1 64K/32K)");
             }
         } else {
             //$this->upsertCustomer($customer['username'], 'Ascend-Data-Rate', $this->stringToInteger($bw['rate_up'] . $unitup) . "/" . $this->stringToInteger($bw['rate_down'] . $unitdown));
