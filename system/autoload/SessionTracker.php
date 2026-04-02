@@ -165,26 +165,26 @@ class SessionTracker
         $ua = strtolower($userAgent);
 
         // OS detection
-        if (str_contains($ua, 'windows')) $os = 'Windows';
-        elseif (str_contains($ua, 'android')) $os = 'Android';
-        elseif (str_contains($ua, 'iphone') || str_contains($ua, 'ipad')) $os = 'iOS';
-        elseif (str_contains($ua, 'mac')) $os = 'macOS';
-        elseif (str_contains($ua, 'linux')) $os = 'Linux';
+        if (strpos($ua, 'windows') !== false) $os = 'Windows';
+        elseif (strpos($ua, 'android') !== false) $os = 'Android';
+        elseif (strpos($ua, 'iphone') !== false || strpos($ua, 'ipad') !== false) $os = 'iOS';
+        elseif (strpos($ua, 'mac') !== false) $os = 'macOS';
+        elseif (strpos($ua, 'linux') !== false) $os = 'Linux';
         else $os = 'Unknown';
 
         // Browser detection
-        if (str_contains($ua, 'edg/')) $browser = 'Edge';
-        elseif (str_contains($ua, 'opr/') || str_contains($ua, 'opera')) $browser = 'Opera';
-        elseif (str_contains($ua, 'chrome')) $browser = 'Chrome';
-        elseif (str_contains($ua, 'firefox')) $browser = 'Firefox';
-        elseif (str_contains($ua, 'safari')) $browser = 'Safari';
-        elseif (str_contains($ua, 'curl') || str_contains($ua, 'python') || str_contains($ua, 'okhttp')) $browser = 'API Client';
+        if (strpos($ua, 'edg/') !== false) $browser = 'Edge';
+        elseif (strpos($ua, 'opr/') !== false || strpos($ua, 'opera') !== false) $browser = 'Opera';
+        elseif (strpos($ua, 'chrome') !== false) $browser = 'Chrome';
+        elseif (strpos($ua, 'firefox') !== false) $browser = 'Firefox';
+        elseif (strpos($ua, 'safari') !== false) $browser = 'Safari';
+        elseif (strpos($ua, 'curl') !== false || strpos($ua, 'python') !== false || strpos($ua, 'okhttp') !== false) $browser = 'API Client';
         else $browser = 'Unknown';
 
         // Icon
-        if (str_contains($ua, 'mobile') || str_contains($ua, 'android') || str_contains($ua, 'iphone'))
+        if (strpos($ua, 'mobile') !== false || strpos($ua, 'android') !== false || strpos($ua, 'iphone') !== false)
             $icon = 'fa-mobile';
-        elseif (str_contains($ua, 'ipad') || str_contains($ua, 'tablet'))
+        elseif (strpos($ua, 'ipad') !== false || strpos($ua, 'tablet') !== false)
             $icon = 'fa-tablet';
         else
             $icon = 'fa-desktop';
