@@ -38,9 +38,9 @@ class Admin
             }
         } else if (!empty($_SESSION['aid'])) {
             $isValid = self::validateToken($_SESSION['aid'], $_COOKIE['aid']);
-            if (!$isValid) {
+            if (!$isValid || SessionTracker::isRevoked(sha1($_COOKIE['aid'] ?? ''))) {
                 self::removeCookie();
-                _alert(Lang::T('Token has expired. Please log in again.') . '.'.$_SESSION['aid'], 'danger', "admin");
+                _alert(Lang::T('Token has expired. Please log in again.'), 'danger', "admin");
                 return 0;
             }
             return $_SESSION['aid'];
@@ -55,9 +55,9 @@ class Admin
                     // For now API need to always return true, next need to add revoke token API
                     $isValid = true;
                 }
-                if (!empty($_COOKIE['aid']) && !$isValid) {
+                if (!empty($_COOKIE['aid']) && (!$isValid || SessionTracker::isRevoked(sha1($_COOKIE['aid'])))) {
                     self::removeCookie();
-                    _alert(Lang::T('Token has expired. Please log in again.') . '..', 'danger', "admin");
+                    _alert(Lang::T('Your session was revoked. Please log in again.'), 'danger', "admin");
                     return 0;
                 } else {
                     if (time() - $tmp[1] < 86400 * 7) {

@@ -180,6 +180,26 @@ switch ($action) {
         $ui->display('admin/logs/message.tpl');
         break;
 
+    case 'sessions':
+        SessionTracker::pruneStale(120);
+        $sessions = SessionTracker::getActive(120);
+        foreach ($sessions as &$s) {
+            $s['device'] = SessionTracker::parseDevice($s['user_agent']);
+        }
+        unset($s);
+        $ui->assign('sessions', $sessions);
+        $ui->display('admin/logs/sessions.tpl');
+        break;
+
+    case 'sessions-revoke':
+        $tokenHash = _post('token_hash');
+        if ($tokenHash) {
+            SessionTracker::forceLogout($tokenHash);
+            r2(getUrl('logs/sessions'), 's', Lang::T('Session has been force-revoked. The user will be logged out on their next request.'));
+        }
+        r2(getUrl('logs/sessions'), 'e', Lang::T('Invalid request.'));
+        break;
+
     default:
         r2(getUrl('logs/list/'), 's', '');
 }

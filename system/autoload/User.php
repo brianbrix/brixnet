@@ -17,6 +17,10 @@ class User
             // id.time.sha1
             $tmp = explode('.', $_COOKIE['uid']);
             if (sha1($tmp[0] . '.' . $tmp[1] . '.' . $db_pass) == $tmp[2]) {
+                if (SessionTracker::isRevoked(sha1($_COOKIE['uid']))) {
+                    self::removeCookie();
+                    return 0;
+                }
                 if (time() - $tmp[1] < 86400 * 30) {
                     $_SESSION['uid'] = $tmp[0];
                     return $tmp[0];

@@ -11,6 +11,12 @@ header("Pragma: no-cache");
 
 run_hook('customer_logout'); #HOOK
 if (session_status() == PHP_SESSION_NONE) session_start();
+if (!empty($_COOKIE['aid'])) {
+    SessionTracker::clear(sha1($_COOKIE['aid']));
+}
+if (!empty($_COOKIE['uid'])) {
+    SessionTracker::clear(sha1($_COOKIE['uid']));
+}
 Admin::removeCookie();
 User::removeCookie();
 session_destroy();

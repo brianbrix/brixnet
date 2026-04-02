@@ -387,6 +387,8 @@
                                 {/if}
                                 <li {if $_routes[1] eq 'message' }class="active" {/if}><a
                                     href="{Text::url('logs/message')}">Message</a></li>
+                                <li {if $_routes[1] eq 'sessions' }class="active" {/if}><a
+                                    href="{Text::url('logs/sessions')}"><i class="fa fa-shield"></i> {Lang::T('Active Sessions')}</a></li>
                                 {$_MENU_LOGS}
                             </ul>
                         </li>

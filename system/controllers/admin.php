@@ -39,6 +39,7 @@ switch ($do) {
                     $d->last_login = date('Y-m-d H:i:s');
                     $d->save();
                     _log($username . ' ' . Lang::T('Login Successful'), $d['user_type'], $d['id']);
+                    SessionTracker::record($d['id'], $d['user_type'], $d['username'], $d['fullname'], sha1($token));
                     if ($isApi) {
                         if ($token) {
                             showResult(true, Lang::T('Login Successful'), ['token' => "a." . $token]);
