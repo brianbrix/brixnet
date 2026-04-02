@@ -7,10 +7,6 @@
                 <span class="badge pull-right">{count($sessions)}</span>
             </div>
             <div class="panel-body">
-                <p class="text-muted small">
-                    <i class="fa fa-info-circle"></i>
-                    {Lang::T('Showing sessions active in the last 2 hours. Sessions older than 2 hours are automatically removed.')}
-                </p>
                 {if count($sessions) == 0}
                     <div class="alert alert-info">{Lang::T('No active sessions found.')}</div>
                 {else}
