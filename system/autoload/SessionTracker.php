@@ -134,6 +134,15 @@ class SessionTracker
         );
     }
 
+    public static function getAll()
+    {
+        self::ensureTable();
+        return ORM::for_table('tbl_login_sessions')
+            ->where('revoked', 0)
+            ->order_by_desc('last_seen')
+            ->find_array();
+    }
+
     public static function getActive($staleMinutes = 30)
     {
         self::ensureTable();

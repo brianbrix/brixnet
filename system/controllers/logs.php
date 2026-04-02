@@ -181,8 +181,7 @@ switch ($action) {
         break;
 
     case 'sessions':
-        SessionTracker::pruneStale(120);
-        $sessions = SessionTracker::getActive(120);
+        $sessions = SessionTracker::getAll();
         foreach ($sessions as &$s) {
             $s['device'] = SessionTracker::parseDevice($s['user_agent']);
         }
