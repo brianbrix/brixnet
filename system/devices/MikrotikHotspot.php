@@ -284,11 +284,17 @@ class MikrotikHotspot
             RouterOS\Query::where('name', $username)
         );
         $userID = $client->sendSync($printRequest)->getProperty('.id');
-        $removeRequest = new RouterOS\Request('/ip/hotspot/user/remove');
-        $client->sendSync(
-            $removeRequest
-                ->setArgument('numbers', $userID)
-        );
+        // Guard against null ID: sending /ip/hotspot/user/remove without a
+        // numbers argument (because setArgument('numbers', null) strips it)
+        // can cause RouterOS to remove ALL hotspot users on some firmware
+        // versions. Only attempt the remove when an actual ID was found.
+        if (!empty($userID)) {
+            $removeRequest = new RouterOS\Request('/ip/hotspot/user/remove');
+            $client->sendSync(
+                $removeRequest
+                    ->setArgument('numbers', $userID)
+            );
+        }
     }
 
     function addHotspotUser($client, $plan, $customer)
