@@ -246,8 +246,28 @@ switch ($action) {
         $enabled = _post('enabled');
         $prepaid = _post('prepaid');
         $expired_date = _post('expired_date');
-        $keepalive_timeout = _post('keepalive_timeout', '');
-        $idle_timeout = _post('idle_timeout', '');
+        $keepalive_timeout = trim(_post('keepalive_timeout'));
+        $idle_timeout = trim(_post('idle_timeout'));
+
+        $msg = '';
+        if (Validator::UnsignedNumber($validity) == false) {
+            $msg .= 'The validity must be a number' . '<br>';
+        }
+        if (Validator::UnsignedNumber($price) == false) {
+            $msg .= 'The price must be a number' . '<br>';
+        }
+        if ($name == '' or $id_bw == '' or $price == '' or $validity == '') {
+            $msg .= Lang::T('All field is required') . '<br>';
+        }
+        if (empty($radius)) {
+            if ($routers == '') {
+                $msg .= Lang::T('All field is required') . '<br>';
+            }
+        }
+        $d = ORM::for_table('tbl_plans')->where('name_plan', $name)->where('type', 'Hotspot')->find_one();
+        if ($d) {
+            $msg .= Lang::T('Name Plan Already Exist') . '<br>';
+        }
 
         run_hook('add_plan'); #HOOK
 
@@ -277,9 +297,9 @@ switch ($action) {
             }
             $d->enabled = $enabled;
             $d->prepaid = $prepaid;
-            $d->keepalive_timeout = $keepalive_timeout;
-            $d->idle_timeout = $idle_timeout;
             $d->device = $device;
+            $d->keepalive_timeout = $keepalive_timeout === '' ? null : $keepalive_timeout;
+            $d->idle_timeout = $idle_timeout === '' ? null : $idle_timeout;
             if ($prepaid == 'no') {
                 if ($expired_date > 28 && $expired_date < 1) {
                     $expired_date = 20;
@@ -330,8 +350,20 @@ switch ($action) {
         $on_login = _post('on_login');
         $on_logout = _post('on_logout');
         $expired_date = _post('expired_date');
-        $keepalive_timeout = _post('keepalive_timeout', '');
-        $idle_timeout = _post('idle_timeout', '');
+        $keepalive_timeout = trim(_post('keepalive_timeout'));
+        $idle_timeout = trim(_post('idle_timeout'));
+        $msg = '';
+        if (Validator::UnsignedNumber($validity) == false) {
+            $msg .= 'The validity must be a number' . '<br>';
+        }
+        if (Validator::UnsignedNumber($price) == false) {
+            $msg .= 'The price must be a number' . '<br>';
+        }
+        if ($name == '' or $id_bw == '' or $price == '' or $validity == '') {
+            $msg .= Lang::T('All field is required') . '<br>';
+        }
+        $d = ORM::for_table('tbl_plans')->where('id', $id)->find_one();
+        $old = ORM::for_table('tbl_plans')->where('id', $id)->find_one();
         if ($d) {
         } else {
             $msg .= Lang::T('Data Not Found') . '<br>';
@@ -382,8 +414,8 @@ switch ($action) {
             $d->prepaid = $prepaid;
             $d->on_login = $on_login;
             $d->on_logout = $on_logout;
-            $d->keepalive_timeout = $keepalive_timeout;
-            $d->idle_timeout = $idle_timeout;
+            $d->keepalive_timeout = $keepalive_timeout === '' ? null : $keepalive_timeout;
+            $d->idle_timeout = $idle_timeout === '' ? null : $idle_timeout;
             $d->device = $device;
             if ($prepaid == 'no') {
                 if ($expired_date > 28 && $expired_date < 1) {

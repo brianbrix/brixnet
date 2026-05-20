@@ -134,16 +134,7 @@ class MikrotikHotspot
         $printRequest->setQuery(RouterOS\Query::where('name', $plan['name_plan']));
         $profileID = $client->sendSync($printRequest)->getProperty('.id');
 
-        // Use explicit timeout values from the plan if set, otherwise fall back
-        // to auto-detection based on plan type (none for Days/Monthly, defaults for Time-limited).
-        $isTimeLimited = ($plan['typebp'] == 'Limited' &&
-            in_array($plan['limit_type'], ['Time_Limit', 'Both_Limit']));
-        $keepaliveTimeout = !empty($plan['keepalive_timeout'])
-            ? $plan['keepalive_timeout']
-            : ($isTimeLimited ? '00:02:00' : 'none');
-        $idleTimeout = !empty($plan['idle_timeout'])
-            ? $plan['idle_timeout']
-            : ($isTimeLimited ? '00:05:00' : 'none');
+        list($keepaliveTimeout, $idleTimeout) = $this->getProfileTimeouts($plan);
 
         if (!empty($profileID)) {
             $setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
@@ -246,14 +237,7 @@ class MikrotikHotspot
 			if ($bw['rate_up'] == '0' || $bw['rate_down'] == '0') {
 				$rate = '';
 			}
-            $isTimeLimited = ($new_plan['typebp'] == 'Limited' &&
-                in_array($new_plan['limit_type'], ['Time_Limit', 'Both_Limit']));
-            $keepaliveTimeout = !empty($new_plan['keepalive_timeout'])
-                ? $new_plan['keepalive_timeout']
-                : ($isTimeLimited ? '00:02:00' : 'none');
-            $idleTimeout = !empty($new_plan['idle_timeout'])
-                ? $new_plan['idle_timeout']
-                : ($isTimeLimited ? '00:05:00' : 'none');
+            list($keepaliveTimeout, $idleTimeout) = $this->getProfileTimeouts($new_plan);
 
             $setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
             $client->sendSync(
@@ -268,6 +252,31 @@ class MikrotikHotspot
                     ->setArgument('on-logout', $new_plan['on_logout'])
             );
         }
+    }
+
+    protected function getProfileTimeouts($plan)
+    {
+        $keepaliveTimeout = '';
+        $idleTimeout = '';
+
+        if (isset($plan['keepalive_timeout'])) {
+            $keepaliveTimeout = trim((string) $plan['keepalive_timeout']);
+        }
+        if (isset($plan['idle_timeout'])) {
+            $idleTimeout = trim((string) $plan['idle_timeout']);
+        }
+
+        $isTimeLimited = ($plan['typebp'] == 'Limited'
+            && in_array($plan['limit_type'], ['Time_Limit', 'Both_Limit']));
+
+        if ($keepaliveTimeout === '') {
+            $keepaliveTimeout = $isTimeLimited ? '00:02:00' : 'none';
+        }
+        if ($idleTimeout === '') {
+            $idleTimeout = $isTimeLimited ? '00:05:00' : 'none';
+        }
+
+        return [$keepaliveTimeout, $idleTimeout];
     }
 
     function remove_plan($plan)
@@ -300,33 +309,22 @@ class MikrotikHotspot
         list($host, $port) = $this->parseRouterAddress($ip);
         $tries = [];
 
-        // RouterOS uses self-signed certificates on port 8729, so peer
-        // verification must be disabled for the TLS connection to succeed.
-        $tlsContext = stream_context_create([
-            'ssl' => [
-                'verify_peer'       => false,
-                'verify_peer_name'  => false,
-                'allow_self_signed' => true,
-            ]
-        ]);
-
         if ($port !== null) {
             $port = (int) $port;
             if ($port === 8729) {
-                // Port 8729 is SSL-only; plain-text on this port always fails
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS, $tlsContext];
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
             } else {
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF, null];
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
             }
         } else {
-            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF, null];
-            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS, $tlsContext];
+            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
         }
 
         $lastException = null;
         foreach ($tries as $try) {
             try {
-                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1], $try[2]);
+                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1]);
             } catch (\Exception $e) {
                 $lastException = $e;
             }

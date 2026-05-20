@@ -120,8 +120,8 @@ CREATE TABLE `tbl_plans` (
   `device` varchar(32) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
   `on_login` TEXT NULL DEFAULT NULL,
   `on_logout` TEXT NULL DEFAULT NULL,
-  `keepalive_timeout` varchar(20) COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
-  `idle_timeout` varchar(20) COLLATE utf8mb4_general_ci NULL DEFAULT NULL
+  `keepalive_timeout` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `idle_timeout` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `tbl_pool`;

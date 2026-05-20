@@ -166,26 +166,6 @@
                             <input type="text" class="form-control" id="sharedusers" name="sharedusers" value="1">
                         </div>
                     </div>
-                    <div class="form-group" id="hotspot-timeouts">
-                        <label class="col-md-2 control-label">{Lang::T('Keepalive Timeout')}
-                            <a tabindex="0" class="btn btn-link btn-xs" role="button" data-toggle="popover"
-                                data-trigger="focus" data-container="body"
-                                data-content="{Lang::T('How long Mikrotik waits before dropping an offline session. Use none so users are not kicked out when their device goes to sleep. Use 00:02:00 for time-limited plans.')}">?</a>
-                        </label>
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" name="keepalive_timeout" value="none" placeholder="none or 00:02:00">
-                        </div>
-                    </div>
-                    <div class="form-group" id="hotspot-idle-timeout">
-                        <label class="col-md-2 control-label">{Lang::T('Idle Timeout')}
-                            <a tabindex="0" class="btn btn-link btn-xs" role="button" data-toggle="popover"
-                                data-trigger="focus" data-container="body"
-                                data-content="{Lang::T('How long Mikrotik waits before dropping an idle session. Use none so users are not kicked out when they stop browsing. Use 00:05:00 for time-limited plans.')}">?</a>
-                        </label>
-                        <div class="col-md-4">
-                            <input type="text" class="form-control" name="idle_timeout" value="none" placeholder="none or 00:05:00">
-                        </div>
-                    </div>
                     <div class="form-group">
                         <label class="col-md-2 control-label">{Lang::T('Package Validity')}</label>
                         <div class="col-md-4">
@@ -207,6 +187,20 @@
                         <div class="col-md-6">
                             <input type="number" class="form-control" name="expired_date" maxlength="2" value="20"
                                 min="1" max="28" step="1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2 control-label">{Lang::T('Keepalive Timeout')}</label>
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" name="keepalive_timeout" placeholder="none">
+                            <p class="help-block">{Lang::T('Optional. Leave blank for auto: time-limited plans use 00:02:00, other hotspot plans use none.')}</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="col-md-2 control-label">{Lang::T('Idle Timeout')}</label>
+                        <div class="col-md-6">
+                            <input type="text" class="form-control" name="idle_timeout" placeholder="none">
+                            <p class="help-block">{Lang::T('Optional. Leave blank for auto: time-limited plans use 00:05:00, other hotspot plans use none.')}</p>
                         </div>
                     </div>
                     <span id="routerChoose" class="">
