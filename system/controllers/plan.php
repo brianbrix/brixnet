@@ -442,6 +442,19 @@ switch ($action) {
                 }
             }
             $d->save();
+
+            // Sync expiry change to device when same plan is active
+            // (plan-change already handles device sync above, but expiry-only changes do not)
+            if ($oldPlanID == $id_plan && $d['status'] == 'on') {
+                $customer = User::_info($d['customer_id']);
+                $dvc = Package::getDevice($newPlan);
+                if ($_app_stage != 'demo') {
+                    if (file_exists($dvc)) {
+                        require_once $dvc;
+                        (new $newPlan['device'])->sync_customer($customer, $newPlan);
+                    }
+                }
+            }
             
             // Enhanced audit log for plan edits
             $planForLog = ($oldPlanID != $id_plan) ? $newPlan : ORM::for_table('tbl_plans')->find_one($oldPlanID);
