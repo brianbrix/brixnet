@@ -575,8 +575,9 @@ class Radius
 
         if (!empty(trim($bw['burst']))) {
             // burst format: burst-rx/burst-tx burst-threshold-rx/burst-threshold-tx burst-time priority min-rx/min-tx
-            // e.g. stored as: 256K/128K 128K/64K 8s 1 64K/32K  (burst-time may have optional 's' suffix)
-            $pattern = '/(\d+[KMG])\/(\d+[KMG]) (\d+[KMG])\/(\d+[KMG]) (\d+s?) (\d+) (\d+[KMG])\/(\d+[KMG])/';
+            // e.g. stored as: 256K/128K 128K/64K 8s 1 64K/32K  (burst-time may be single '8s' or rx/tx pair '16/16')
+            // Pattern is case-insensitive to handle lowercase units (e.g. 3840k)
+            $pattern = '/(\d+[KMG])\/(\d+[KMG]) (\d+[KMG])\/(\d+[KMG]) (\d+s?(?:\/\d+s?)?) (\d+) (\d+[KMG])\/(\d+[KMG])/i';
             preg_match($pattern, $bw['burst'], $matches);
             if (count($matches) == 9) {
                 $burst = $bw['rate_up'] . $unitup . "/" . $bw['rate_down'] . $unitdown . ' ' . $matches[1] . '/' . $matches[2] . ' ' . $matches[3] . '/' . $matches[4] . ' ' . $matches[5] . ' ' . $matches[6] . ' ' . $matches[7] . '/' . $matches[8];

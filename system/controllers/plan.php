@@ -406,18 +406,18 @@ switch ($action) {
             run_hook('edit_customer_plan'); #HOOK
             $d->expiration = $expiration;
             $d->time = $time;
-            if ($d['status'] == 'off') {
-                if (strtotime($expiration . ' ' . $time) > time()) {
-                    $d->status = 'on';
-                }
+            // Track effective status so device calls use the correct value
+            $effectiveStatus = $d['status'];
+            if ($effectiveStatus == 'off' && strtotime($expiration . ' ' . $time) > time()) {
+                $d->status = 'on';
+                $effectiveStatus = 'on';
             }
-            // plan different then do something
+            $customer = User::_info($d['customer_id']);
+            // plan changed: remove from old plan device before saving
             if ($oldPlanID != $id_plan) {
                 $d->plan_id = $newPlan['id'];
                 $d->namebp = $newPlan['name_plan'];
-                $customer = User::_info($d['customer_id']);
-                //remove from old plan
-                if ($d['status'] == 'on') {
+                if ($effectiveStatus == 'on') {
                     $p = ORM::for_table('tbl_plans')->find_one($oldPlanID);
                     $dvc = Package::getDevice($p);
                     if ($_app_stage != 'demo') {
@@ -429,23 +429,14 @@ switch ($action) {
                             new Exception(Lang::T("Devices Not Found"));
                         }
                     }
-                    //add new plan
-                    $dvc = Package::getDevice($newPlan);
-                    if ($_app_stage != 'demo') {
-                        if (file_exists($dvc)) {
-                            require_once $dvc;
-                            (new $newPlan['device'])->add_customer($customer, $newPlan);
-                        } else {
-                            new Exception(Lang::T("Devices Not Found"));
-                        }
-                    }
                 }
             }
 
-            // Sync expiry change to device when same plan is active
-            // (plan-change already handles device sync above, but expiry-only changes do not)
-            if ($oldPlanID == $id_plan && $d['status'] == 'on') {
-                $customer = User::_info($d['customer_id']);
+            // Save to DB first so sync_customer reads the correct expiry and plan
+            $d->save();
+
+            // Sync plan and expiry to device for all active plans (covers both plan change and expiry-only edits)
+            if ($effectiveStatus == 'on') {
                 $dvc = Package::getDevice($newPlan);
                 if ($_app_stage != 'demo') {
                     if (file_exists($dvc)) {
@@ -454,7 +445,6 @@ switch ($action) {
                     }
                 }
             }
-            $d->save();
 
 
             // Enhanced audit log for plan edits
@@ -481,7 +471,7 @@ switch ($action) {
             // Check for recharged_on change
             $oldRechargedOn = $d['recharged_on'];
             $newRechargedOn = $recharged_on;
-            if ($oldRechargedOn != $newRechargedOn) {
+            if (!empty($newRechargedOn) && $oldRechargedOn != $newRechargedOn) {
                 $changes[] = "Recharge Date: " . $oldRechargedOn . " → " . $newRechargedOn;
             }
             
