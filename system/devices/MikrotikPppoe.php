@@ -335,24 +335,34 @@ class MikrotikPppoe
         list($host, $port) = $this->parseRouterAddress($ip);
         $tries = [];
 
+        // RouterOS uses self-signed certificates on port 8729, so peer
+        // verification must be disabled for the TLS connection to succeed.
+        $tlsContext = stream_context_create([
+            'ssl' => [
+                'verify_peer'       => false,
+                'verify_peer_name'  => false,
+                'allow_self_signed' => true,
+            ]
+        ]);
+
         if ($port !== null) {
             $port = (int) $port;
             if ($port === 8729) {
                 // Port 8729 is SSL-only; plain-text on this port always fails
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS, $tlsContext];
             } else {
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF, null];
             }
         } else {
             // No explicit port provided: try default API first, then API-SSL.
-            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
-            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
+            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF, null];
+            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS, $tlsContext];
         }
 
         $lastException = null;
         foreach ($tries as $try) {
             try {
-                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1]);
+                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1], $try[2]);
             } catch (\Exception $e) {
                 $lastException = $e;
             }
