@@ -33,11 +33,11 @@ class MikrotikHotspot
     {
         $mikrotik = $this->info($plan['routers']);
         $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-        // Always kick ALL existing active sessions before recreating the user entry.
-        // Without this, old sessions persist and exhaust the shared-users limit
-        // on the profile, making it look like more connections than allowed.
-        $this->removeHotspotActiveUser($client, $customer['username']);
+		$isExp = ORM::for_table('tbl_plans')->select("id")->where('plan_expired', $plan['id'])->find_one();
         $this->removeHotspotUser($client, $customer['username']);
+		if ($isExp){
+        $this->removeHotspotActiveUser($client, $customer['username']);
+		}
         $this->addHotspotUser($client, $plan, $customer);
     }
 	
@@ -122,16 +122,52 @@ class MikrotikHotspot
         if (!empty(trim($bw['burst']))) {
             $rate .= ' ' . $bw['burst'];
         }
-		if ($bw['rate_up'] == '0' || $bw['rate_down'] == '0') {
-			$rate = '';
-		}
-        $addRequest = new RouterOS\Request('/ip/hotspot/user/profile/add');
-        $client->sendSync(
-            $addRequest
-                ->setArgument('name', $plan['name_plan'])
-                ->setArgument('shared-users', max(1, (int)$plan['shared_users']))
-                ->setArgument('rate-limit', $rate)
-        );
+        if ($bw['rate_up'] == '0' || $bw['rate_down'] == '0') {
+            $rate = '';
+        }
+
+        // Check if the profile already exists — if so, update it (upsert).
+        // Simply calling /add when the profile exists fails silently, leaving
+        // the old shared-users value in place and breaking the device limit.
+        $printRequest = new RouterOS\Request('/ip/hotspot/user/profile/print');
+        $printRequest->setArgument('.proplist', '.id');
+        $printRequest->setQuery(RouterOS\Query::where('name', $plan['name_plan']));
+        $profileID = $client->sendSync($printRequest)->getProperty('.id');
+
+        // For time-limited plans let Mikrotik's default timeouts apply so idle
+        // time is deducted correctly. For all other plans (Days, Monthly, Data)
+        // set both to 'none' so users are not kicked out when their device
+        // goes offline temporarily (e.g. phone screen off, brief WiFi drop).
+        $isTimeLimited = ($plan['typebp'] == 'Limited' &&
+            in_array($plan['limit_type'], ['Time_Limit', 'Both_Limit']));
+        $keepaliveTimeout = $isTimeLimited ? '00:02:00' : 'none';
+        $idleTimeout      = $isTimeLimited ? '00:05:00' : 'none';
+
+        if (!empty($profileID)) {
+            $setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
+            $client->sendSync(
+                $setRequest
+                    ->setArgument('numbers', $profileID)
+                    ->setArgument('shared-users', $plan['shared_users'])
+                    ->setArgument('rate-limit', $rate)
+                    ->setArgument('keepalive-timeout', $keepaliveTimeout)
+                    ->setArgument('idle-timeout', $idleTimeout)
+                    ->setArgument('on-login', (string)$plan['on_login'])
+                    ->setArgument('on-logout', (string)$plan['on_logout'])
+            );
+        } else {
+            $addRequest = new RouterOS\Request('/ip/hotspot/user/profile/add');
+            $client->sendSync(
+                $addRequest
+                    ->setArgument('name', $plan['name_plan'])
+                    ->setArgument('shared-users', $plan['shared_users'])
+                    ->setArgument('rate-limit', $rate)
+                    ->setArgument('keepalive-timeout', $keepaliveTimeout)
+                    ->setArgument('idle-timeout', $idleTimeout)
+                    ->setArgument('on-login', (string)$plan['on_login'])
+                    ->setArgument('on-logout', (string)$plan['on_logout'])
+            );
+        }
     }
 
     function online_customer($customer, $router_name)
@@ -208,13 +244,20 @@ class MikrotikHotspot
 			if ($bw['rate_up'] == '0' || $bw['rate_down'] == '0') {
 				$rate = '';
 			}
+            $isTimeLimited = ($new_plan['typebp'] == 'Limited' &&
+                in_array($new_plan['limit_type'], ['Time_Limit', 'Both_Limit']));
+            $keepaliveTimeout = $isTimeLimited ? '00:02:00' : 'none';
+            $idleTimeout      = $isTimeLimited ? '00:05:00' : 'none';
+
             $setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
             $client->sendSync(
                 $setRequest
                     ->setArgument('numbers', $profileID)
                     ->setArgument('name', $new_plan['name_plan'])
-                    ->setArgument('shared-users', max(1, (int)$new_plan['shared_users']))
+                    ->setArgument('shared-users', $new_plan['shared_users'])
                     ->setArgument('rate-limit', $rate)
+                    ->setArgument('keepalive-timeout', $keepaliveTimeout)
+                    ->setArgument('idle-timeout', $idleTimeout)
                     ->setArgument('on-login', $new_plan['on_login'])
                     ->setArgument('on-logout', $new_plan['on_logout'])
             );
@@ -248,29 +291,54 @@ class MikrotikHotspot
         if ($_app_stage == 'Demo') {
             return null;
         }
-        $iport = explode(":", $ip);
-        $port   = !empty($iport[1]) ? (int)$iport[1] : 8728;
-        // Port 8729 is RouterOS API-SSL — must negotiate TLS.
-        // RouterOS historically uses Anonymous DH (ADH) ciphers on this port,
-        // so we must enable ADH via @SECLEVEL=0 for older firmware.
-        // Modern firmware uses standard TLS with a self-signed cert, handled
-        // by verify_peer=false.
-        if ($port === 8729) {
-            $context = stream_context_create([
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
-                    'ciphers'           => 'ADH:HIGH:MEDIUM:@SECLEVEL=0',
-                ],
-            ]);
-            return new RouterOS\Client(
-                $iport[0], $user, $pass, $port, false, null,
-                \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS,
-                $context
-            );
+        list($host, $port) = $this->parseRouterAddress($ip);
+        $tries = [];
+
+        if ($port !== null) {
+            $port = (int) $port;
+            if ($port === 8729) {
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+            } else {
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+            }
+        } else {
+            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
         }
-        return new RouterOS\Client($iport[0], $user, $pass, $port);
+
+        $lastException = null;
+        foreach ($tries as $try) {
+            try {
+                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1]);
+            } catch (\Exception $e) {
+                $lastException = $e;
+            }
+        }
+
+        if ($lastException !== null) {
+            throw $lastException;
+        }
+
+        throw new \Exception('Unable to connect to MikroTik API');
+    }
+
+    function parseRouterAddress($ip)
+    {
+        $ip = trim((string) $ip);
+        if ($ip === '') {
+            return ['', null];
+        }
+
+        if (preg_match('/^\[(.+)\](?::(\d+))?$/', $ip, $matches)) {
+            return [$matches[1], isset($matches[2]) ? (int) $matches[2] : null];
+        }
+
+        if (preg_match('/^([^:]+):(\d+)$/', $ip, $matches)) {
+            return [$matches[1], (int) $matches[2]];
+        }
+
+        return [$ip, null];
     }
 
     function removeHotspotUser($client, $username)
@@ -284,17 +352,11 @@ class MikrotikHotspot
             RouterOS\Query::where('name', $username)
         );
         $userID = $client->sendSync($printRequest)->getProperty('.id');
-        // Guard against null ID: sending /ip/hotspot/user/remove without a
-        // numbers argument (because setArgument('numbers', null) strips it)
-        // can cause RouterOS to remove ALL hotspot users on some firmware
-        // versions. Only attempt the remove when an actual ID was found.
-        if (!empty($userID)) {
-            $removeRequest = new RouterOS\Request('/ip/hotspot/user/remove');
-            $client->sendSync(
-                $removeRequest
-                    ->setArgument('numbers', $userID)
-            );
-        }
+        $removeRequest = new RouterOS\Request('/ip/hotspot/user/remove');
+        $client->sendSync(
+            $removeRequest
+                ->setArgument('numbers', $userID)
+        );
     }
 
     function addHotspotUser($client, $plan, $customer)
@@ -405,25 +467,14 @@ class MikrotikHotspot
         if ($_app_stage == 'Demo') {
             return null;
         }
-        // Collect ALL active session IDs for this user, then remove them all.
-        // The old code used getProperty() which only returned the first ID,
-        // leaving additional sessions alive and breaking shared-users enforcement.
         $onlineRequest = new RouterOS\Request('/ip/hotspot/active/print');
         $onlineRequest->setArgument('.proplist', '.id');
         $onlineRequest->setQuery(RouterOS\Query::where('user', $username));
-        $response = $client->sendSync($onlineRequest);
-        $ids = [];
-        foreach ($response as $entry) {
-            $id = $entry->getProperty('.id');
-            if (!empty($id)) {
-                $ids[] = $id;
-            }
-        }
-        if (!empty($ids)) {
-            $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
-            $removeRequest->setArgument('numbers', implode(',', $ids));
-            $client->sendSync($removeRequest);
-        }
+        $id = $client->sendSync($onlineRequest)->getProperty('.id');
+
+        $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
+        $removeRequest->setArgument('numbers', $id);
+        $client->sendSync($removeRequest);
     }
 
     function getIpHotspotUser($client, $username)
@@ -437,31 +488,5 @@ class MikrotikHotspot
             RouterOS\Query::where('user', $username)
         );
         return $client->sendSync($printRequest)->getProperty('address');
-    }
-
-    /**
-     * Returns username => active-session-count for ALL users currently online
-     * on the given router.  Used by the admin active-billing view so it shows
-     * live counts instead of the always-empty radacct query.
-     */
-    function getActiveSessionCounts($router_name)
-    {
-        global $_app_stage;
-        if ($_app_stage == 'Demo') {
-            return [];
-        }
-        $mikrotik = $this->info($router_name);
-        $client   = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-        $printRequest = new RouterOS\Request('/ip/hotspot/active/print');
-        $printRequest->setArgument('.proplist', 'user');
-        $response = $client->sendSync($printRequest);
-        $counts = [];
-        foreach ($response as $entry) {
-            $user = $entry->getProperty('user');
-            if (!empty($user)) {
-                $counts[$user] = ($counts[$user] ?? 0) + 1;
-            }
-        }
-        return $counts;
     }
 }
