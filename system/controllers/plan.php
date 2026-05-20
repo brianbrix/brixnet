@@ -441,7 +441,6 @@ switch ($action) {
                     }
                 }
             }
-            $d->save();
 
             // Sync expiry change to device when same plan is active
             // (plan-change already handles device sync above, but expiry-only changes do not)
@@ -455,7 +454,9 @@ switch ($action) {
                     }
                 }
             }
-            
+            $d->save();
+
+
             // Enhanced audit log for plan edits
             $planForLog = ($oldPlanID != $id_plan) ? $newPlan : ORM::for_table('tbl_plans')->find_one($oldPlanID);
             
