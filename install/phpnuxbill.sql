@@ -119,7 +119,9 @@ CREATE TABLE `tbl_plans` (
   `plan_type` enum('Business','Personal') COLLATE utf8mb4_general_ci DEFAULT 'Personal' COMMENT 'For selecting account type',
   `device` varchar(32) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '',
   `on_login` TEXT NULL DEFAULT NULL,
-  `on_logout` TEXT NULL DEFAULT NULL
+  `on_logout` TEXT NULL DEFAULT NULL,
+  `keepalive_timeout` varchar(20) COLLATE utf8mb4_general_ci NULL DEFAULT NULL,
+  `idle_timeout` varchar(20) COLLATE utf8mb4_general_ci NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `tbl_pool`;

@@ -134,14 +134,16 @@ class MikrotikHotspot
         $printRequest->setQuery(RouterOS\Query::where('name', $plan['name_plan']));
         $profileID = $client->sendSync($printRequest)->getProperty('.id');
 
-        // For time-limited plans let Mikrotik's default timeouts apply so idle
-        // time is deducted correctly. For all other plans (Days, Monthly, Data)
-        // set both to 'none' so users are not kicked out when their device
-        // goes offline temporarily (e.g. phone screen off, brief WiFi drop).
+        // Use explicit timeout values from the plan if set, otherwise fall back
+        // to auto-detection based on plan type (none for Days/Monthly, defaults for Time-limited).
         $isTimeLimited = ($plan['typebp'] == 'Limited' &&
             in_array($plan['limit_type'], ['Time_Limit', 'Both_Limit']));
-        $keepaliveTimeout = $isTimeLimited ? '00:02:00' : 'none';
-        $idleTimeout      = $isTimeLimited ? '00:05:00' : 'none';
+        $keepaliveTimeout = !empty($plan['keepalive_timeout'])
+            ? $plan['keepalive_timeout']
+            : ($isTimeLimited ? '00:02:00' : 'none');
+        $idleTimeout = !empty($plan['idle_timeout'])
+            ? $plan['idle_timeout']
+            : ($isTimeLimited ? '00:05:00' : 'none');
 
         if (!empty($profileID)) {
             $setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
@@ -246,8 +248,12 @@ class MikrotikHotspot
 			}
             $isTimeLimited = ($new_plan['typebp'] == 'Limited' &&
                 in_array($new_plan['limit_type'], ['Time_Limit', 'Both_Limit']));
-            $keepaliveTimeout = $isTimeLimited ? '00:02:00' : 'none';
-            $idleTimeout      = $isTimeLimited ? '00:05:00' : 'none';
+            $keepaliveTimeout = !empty($new_plan['keepalive_timeout'])
+                ? $new_plan['keepalive_timeout']
+                : ($isTimeLimited ? '00:02:00' : 'none');
+            $idleTimeout = !empty($new_plan['idle_timeout'])
+                ? $new_plan['idle_timeout']
+                : ($isTimeLimited ? '00:05:00' : 'none');
 
             $setRequest = new RouterOS\Request('/ip/hotspot/user/profile/set');
             $client->sendSync(
@@ -297,8 +303,8 @@ class MikrotikHotspot
         if ($port !== null) {
             $port = (int) $port;
             if ($port === 8729) {
+                // Port 8729 is SSL-only; plain-text on this port always fails
                 $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
             } else {
                 $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
             }

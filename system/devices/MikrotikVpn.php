@@ -296,29 +296,54 @@ class MikrotikVpn
         if ($_app_stage == 'demo') {
             return null;
         }
-        $iport = explode(":", $ip);
-        $port   = !empty($iport[1]) ? (int)$iport[1] : 8728;
-        // Port 8729 is RouterOS API-SSL — must negotiate TLS.
-        // RouterOS historically uses Anonymous DH (ADH) ciphers on this port,
-        // so we must enable ADH via @SECLEVEL=0 for older firmware.
-        // Modern firmware uses standard TLS with a self-signed cert, handled
-        // by verify_peer=false.
-        if ($port === 8729) {
-            $context = stream_context_create([
-                'ssl' => [
-                    'verify_peer'       => false,
-                    'verify_peer_name'  => false,
-                    'allow_self_signed' => true,
-                    'ciphers'           => 'ADH:HIGH:MEDIUM:@SECLEVEL=0',
-                ],
-            ]);
-            return new RouterOS\Client(
-                $iport[0], $user, $pass, $port, false, null,
-                \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS,
-                $context
-            );
+        list($host, $port) = $this->parseRouterAddress($ip);
+        $tries = [];
+
+        if ($port !== null) {
+            $port = (int) $port;
+            if ($port === 8729) {
+                // Port 8729 is SSL-only; plain-text on this port always fails
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
+            } else {
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+            }
+        } else {
+            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
         }
-        return new RouterOS\Client($iport[0], $user, $pass, $port);
+
+        $lastException = null;
+        foreach ($tries as $try) {
+            try {
+                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1]);
+            } catch (\Exception $e) {
+                $lastException = $e;
+            }
+        }
+
+        if ($lastException !== null) {
+            throw $lastException;
+        }
+
+        throw new \Exception('Unable to connect to MikroTik API');
+    }
+
+    function parseRouterAddress($ip)
+    {
+        $ip = trim((string) $ip);
+        if ($ip === '') {
+            return ['', null];
+        }
+
+        if (preg_match('/^\[(.+)\](?::(\d+))?$/', $ip, $matches)) {
+            return [$matches[1], isset($matches[2]) ? (int) $matches[2] : null];
+        }
+
+        if (preg_match('/^([^:]+):(\d+)$/', $ip, $matches)) {
+            return [$matches[1], (int) $matches[2]];
+        }
+
+        return [$ip, null];
     }
 
     function removeVpnUser($client, $username, $cstid)
