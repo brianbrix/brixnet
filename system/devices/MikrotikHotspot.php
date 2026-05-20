@@ -312,19 +312,23 @@ class MikrotikHotspot
         if ($port !== null) {
             $port = (int) $port;
             if ($port === 8729) {
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
+                foreach ($this->getTlsContexts() as $context) {
+                    $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS, $context];
+                }
             } else {
-                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
+                $tries[] = [$port, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF, null];
             }
         } else {
-            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF];
-            $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS];
+            $tries[] = [8728, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_OFF, null];
+            foreach ($this->getTlsContexts() as $context) {
+                $tries[] = [8729, \PEAR2\Net\Transmitter\NetworkStream::CRYPTO_TLS, $context];
+            }
         }
 
         $lastException = null;
         foreach ($tries as $try) {
             try {
-                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1]);
+                return new RouterOS\Client($host, $user, $pass, $try[0], false, null, $try[1], $try[2]);
             } catch (\Exception $e) {
                 $lastException = $e;
             }
@@ -335,6 +339,29 @@ class MikrotikHotspot
         }
 
         throw new \Exception('Unable to connect to MikroTik API');
+    }
+
+    protected function getTlsContexts()
+    {
+        $contexts = [];
+        $cipherSets = [
+            'DEFAULT:@SECLEVEL=0',
+            'ADH:@SECLEVEL=0',
+            'ADH',
+        ];
+
+        foreach ($cipherSets as $cipherSet) {
+            $contexts[] = stream_context_create([
+                'ssl' => [
+                    'ciphers' => $cipherSet,
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true,
+                ],
+            ]);
+        }
+
+        return $contexts;
     }
 
     function parseRouterAddress($ip)
