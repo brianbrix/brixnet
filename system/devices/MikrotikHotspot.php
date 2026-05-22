@@ -86,7 +86,12 @@ class MikrotikHotspot
         $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
         $setRequest->setArgument('numbers', $userState['id']);
         if ($remainingUptime !== null) {
+            // Store the exact remaining time and reset the accumulated uptime counter
+            // to 0 so that on resume: effective_remaining = limit-uptime − uptime = remaining − 0.
+            // Without the uptime reset, RouterOS would compute remaining − accumulated_uptime,
+            // which loses all the time the user had already spent before the pause.
             $setRequest->setArgument('limit-uptime', $remainingUptime);
+            $setRequest->setArgument('uptime', '0s');
         }
 
         $client->sendSync(
