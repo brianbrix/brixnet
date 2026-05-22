@@ -83,6 +83,23 @@ class MikrotikPppoe
         $this->add_customer($customer, $plan);
     }
 
+    function set_customer_disabled($customer, $plan, $disabled)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $cid = $this->getIdByCustomer($customer, $client);
+        if (empty($cid)) {
+            return;
+        }
+
+        $setRequest = new RouterOS\Request('/ppp/secret/set');
+        $client->sendSync(
+            $setRequest
+                ->setArgument('numbers', $cid)
+                ->setArgument('disabled', $disabled ? 'yes' : 'no')
+        );
+    }
+
     function remove_customer($customer, $plan)
     {
         $mikrotik = $this->info($plan['routers']);

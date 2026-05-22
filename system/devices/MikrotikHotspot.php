@@ -205,6 +205,27 @@ class MikrotikHotspot
         );
     }
 
+    function set_customer_disabled($customer, $plan, $disabled)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $printRequest = new RouterOS\Request('/ip/hotspot/user/print');
+        $printRequest->setArgument('.proplist', '.id');
+        $printRequest->setQuery(RouterOS\Query::where('name', $customer['username']));
+        $userID = $client->sendSync($printRequest)->getProperty('.id');
+
+        if (empty($userID)) {
+            return;
+        }
+
+        $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
+        $client->sendSync(
+            $setRequest
+                ->setArgument('numbers', $userID)
+                ->setArgument('disabled', $disabled ? 'yes' : 'no')
+        );
+    }
+
 
     function update_plan($old_plan, $new_plan)
     {
