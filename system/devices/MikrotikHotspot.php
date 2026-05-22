@@ -65,6 +65,51 @@ class MikrotikHotspot
 		}
 	}
 
+    function pause_customer($customer, $plan)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $userId = $this->getHotspotUserId($client, $customer['username']);
+
+        if (empty($userId)) {
+            return false;
+        }
+
+        $this->removeHotspotActiveUser($client, $customer['username']);
+
+        $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
+        $client->sendSync(
+            $setRequest
+                ->setArgument('numbers', $userId)
+                ->setArgument('profile', $plan['name_plan'])
+                ->setArgument('disabled', 'yes')
+        );
+
+        return true;
+    }
+
+    function resume_customer($customer, $plan)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $userId = $this->getHotspotUserId($client, $customer['username']);
+
+        if (empty($userId)) {
+            $this->add_customer($customer, $plan);
+            return false;
+        }
+
+        $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
+        $client->sendSync(
+            $setRequest
+                ->setArgument('numbers', $userId)
+                ->setArgument('profile', $plan['name_plan'])
+                ->setArgument('disabled', 'no')
+        );
+
+        return true;
+    }
+
 
     function remove_customer($customer, $plan)
     {
@@ -502,6 +547,15 @@ class MikrotikHotspot
         $client->sendSync($setRequest);
     }
 
+    protected function getHotspotUserId($client, $username)
+    {
+        $printRequest = new RouterOS\Request('/ip/hotspot/user/print');
+        $printRequest->setArgument('.proplist', '.id');
+        $printRequest->setQuery(RouterOS\Query::where('name', $username));
+
+        return $client->sendSync($printRequest)->getProperty('.id');
+    }
+
     function removeHotspotActiveUser($client, $username)
     {
         global $_app_stage;
@@ -511,11 +565,22 @@ class MikrotikHotspot
         $onlineRequest = new RouterOS\Request('/ip/hotspot/active/print');
         $onlineRequest->setArgument('.proplist', '.id');
         $onlineRequest->setQuery(RouterOS\Query::where('user', $username));
-        $id = $client->sendSync($onlineRequest)->getProperty('.id');
+        $sessions = $client->sendSync($onlineRequest);
 
-        $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
-        $removeRequest->setArgument('numbers', $id);
-        $client->sendSync($removeRequest);
+        foreach ($sessions as $session) {
+            if ($session->getType() !== RouterOS\Response::TYPE_DATA) {
+                continue;
+            }
+
+            $id = $session->getProperty('.id');
+            if (empty($id)) {
+                continue;
+            }
+
+            $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
+            $removeRequest->setArgument('numbers', $id);
+            $client->sendSync($removeRequest);
+        }
     }
 
     function getIpHotspotUser($client, $username)

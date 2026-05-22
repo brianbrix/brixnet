@@ -327,6 +327,23 @@ switch ($action) {
             }
             
             $reason = _post('pause_reason') ?: '';
+
+            $customer = ORM::for_table('tbl_customers')->find_one($id_customer);
+            $plan = ORM::for_table('tbl_plans')->find_one($recharge['plan_id']);
+
+            if ($customer && $plan) {
+                $dvc = Package::getDevice($plan);
+                if (file_exists($dvc)) {
+                    require_once $dvc;
+                    if (method_exists($plan['device'], 'pause_customer')) {
+                        try {
+                            (new $plan['device'])->pause_customer($customer, $plan);
+                        } catch (Exception $e) {
+                            r2(getUrl('customers/view/') . $id_customer, 'e', 'Failed to pause plan on router: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
             
             // Pause the plan
             $recharge->is_paused = 1;
@@ -379,6 +396,23 @@ switch ($action) {
             
             if (!$recharge['is_paused']) {
                 r2(getUrl('customers/view/') . $id_customer, 'e', 'Plan is not paused');
+            }
+
+            $customer = ORM::for_table('tbl_customers')->find_one($id_customer);
+            $plan = ORM::for_table('tbl_plans')->find_one($recharge['plan_id']);
+
+            if ($customer && $plan) {
+                $dvc = Package::getDevice($plan);
+                if (file_exists($dvc)) {
+                    require_once $dvc;
+                    if (method_exists($plan['device'], 'resume_customer')) {
+                        try {
+                            (new $plan['device'])->resume_customer($customer, $plan);
+                        } catch (Exception $e) {
+                            r2(getUrl('customers/view/') . $id_customer, 'e', 'Failed to resume plan on router: ' . $e->getMessage());
+                        }
+                    }
+                }
             }
             
             // Resume the plan
