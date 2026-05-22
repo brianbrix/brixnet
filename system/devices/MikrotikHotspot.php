@@ -257,6 +257,40 @@ class MikrotikHotspot
         );
     }
 
+    function getActiveSessionCounts($router_name)
+    {
+        global $_app_stage;
+        if ($_app_stage == 'Demo') {
+            return [];
+        }
+
+        $mikrotik = $this->info($router_name);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+
+        $printRequest = new RouterOS\Request('/ip/hotspot/active/print');
+        $printRequest->setArgument('.proplist', 'user');
+        $sessions = $client->sendSync($printRequest);
+
+        $counts = [];
+        foreach ($sessions as $session) {
+            if ($session->getType() !== RouterOS\Response::TYPE_DATA) {
+                continue;
+            }
+
+            $username = $session->getProperty('user');
+            if (empty($username)) {
+                continue;
+            }
+
+            if (!isset($counts[$username])) {
+                $counts[$username] = 0;
+            }
+            $counts[$username]++;
+        }
+
+        return $counts;
+    }
+
 
     function update_plan($old_plan, $new_plan)
     {

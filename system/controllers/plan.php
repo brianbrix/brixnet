@@ -1268,6 +1268,7 @@ switch ($action) {
         break;
     default:
         $ui->assign('_title', Lang::T('Customer'));
+        $ui->assign('csrf_token', Csrf::generateAndStoreToken());
         $search = _post('search');
         $status = _req('status');
         $router = _req('router');
@@ -1301,6 +1302,9 @@ switch ($action) {
             ->select('tbl_user_recharges.expiration')
             ->select('tbl_user_recharges.time')
             ->select('tbl_user_recharges.status')
+            ->select('tbl_user_recharges.is_paused')
+            ->select('tbl_user_recharges.paused_on')
+            ->select('tbl_user_recharges.pause_reason')
             ->select('tbl_user_recharges.method')
             ->select('tbl_user_recharges.routers')
             ->select('tbl_user_recharges.type')

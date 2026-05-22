@@ -81,6 +81,7 @@
                                 <th>{Lang::T("Created On")}</th>
                                 <th>{Lang::T("Starts On")}</th>
                                 <th>{Lang::T("Expires On")}</th>
+                                <th>{Lang::T("Paused")}</th>
                                 <th>{Lang::T("Method")}</th>
                                 <th>{Lang::T("Connected Devices")}</th>
                                 <th><a href="{Text::url('')}routers/list">{Lang::T("Location")}</a></th>
@@ -116,6 +117,13 @@
                                     <td>{Lang::dateAndTimeFormat($ds['transaction_created_date'], $ds['transaction_created_time'])}</td>
                                     <td>{Lang::dateAndTimeFormat($ds['recharged_on'],$ds['recharged_time'])}</td>
                                     <td>{Lang::dateAndTimeFormat($ds['expiration'],$ds['time'])}</td>
+                                    <td>
+                                        {if $ds['is_paused']}
+                                            <span class="label label-warning"{if $ds['pause_reason']} title="{$ds['pause_reason']|escape}"{/if}>{Lang::T('Paused')}</span>
+                                        {else}
+                                            <span class="label label-success">{Lang::T('No')}</span>
+                                        {/if}
+                                    </td>
                                     <td>{$ds['method']}</td>
                                     <td>
                                         {assign var="connected" value=$active_devices[$ds.username]|default:0}
@@ -133,6 +141,11 @@
                                             <a href="{Text::url('')}plan/delete/{$ds['id']}" id="{$ds['id']}"
                                                 onclick="return ask(this, '{Lang::T("Delete")}?')"
                                                 class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i></a>
+                                        {/if}
+                                        {if $ds['status']=='on' && $ds['is_paused'] && $ds['customer_id'] != '0' && in_array($_admin['user_type'],['SuperAdmin','Admin'])}
+                                            <a href="{Text::url('customers/resume-plan/', $ds['customer_id'],'/',$ds['id'], '&token=', $csrf_token)}"
+                                                class="btn btn-info btn-xs"
+                                                onclick="return ask(this, '{Lang::T('This will resume the paused plan')}')">{Lang::T('Resume')}</a>
                                         {/if}
                                         {if $ds['status']=='off' && $_c['extend_expired']}
                                             <a href="javascript:extend('{$ds['id']}')"
