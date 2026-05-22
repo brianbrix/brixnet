@@ -31,18 +31,20 @@ class MikrotikHotspot
 
     function add_customer($customer, $plan)
     {
+        global $isChangePlan;
         $mikrotik = $this->info($plan['routers']);
         $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-		$isExp = ORM::for_table('tbl_plans')->select("id")->where('plan_expired', $plan['id'])->find_one();
+        $isExp = ORM::for_table('tbl_plans')->select("id")->where('plan_expired', $plan['id'])->find_one();
         $this->removeHotspotUser($client, $customer['username']);
-		if ($isExp){
-        $this->removeHotspotActiveUser($client, $customer['username']);
-		}
+        if ($isExp || (isset($isChangePlan) && $isChangePlan)) {
+            $this->removeHotspotActiveUser($client, $customer['username']);
+        }
         $this->addHotspotUser($client, $plan, $customer);
     }
 	
 	function sync_customer($customer, $plan)
 	{
+		global $isChangePlan;
 		$mikrotik = $this->info($plan['routers']);
 		$client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
 		$t = ORM::for_table('tbl_user_recharges')->where('username', $customer['username'])->where('status', 'on')->find_one();
@@ -59,6 +61,9 @@ class MikrotikHotspot
 				$setRequest->setArgument('numbers', $id);
 				$setRequest->setArgument('profile', $t['namebp']);
 				$client->sendSync($setRequest);
+				if (isset($isChangePlan) && $isChangePlan) {
+					$this->removeHotspotActiveUser($client, $customer['username']);
+				}
 			} else {
 				$this->add_customer($customer, $plan);
 			}

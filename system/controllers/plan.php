@@ -348,6 +348,16 @@ switch ($action) {
                     ->find_many();
             }
             $ui->assign('p', $ps);
+            $planValidityData = [];
+            foreach ($ps as $_plan) {
+                $planValidityData[] = [
+                    'id'            => (int)$_plan['id'],
+                    'validity'      => (int)$_plan['validity'],
+                    'validity_unit' => $_plan['validity_unit'],
+                ];
+            }
+            $ui->assign('plan_data_json', json_encode($planValidityData));
+            $ui->assign('period_day_exp', (int)($config['period_day_exp'] ?? 1));
             run_hook('view_edit_customer_plan'); #HOOK
             $ui->assign('_title', 'Edit Plan');
             $ui->display('admin/plan/edit.tpl');
@@ -387,6 +397,7 @@ switch ($action) {
         }
         $id_plan = _post('id_plan');
         $recharged_on = _post('recharged_on');
+        $recharged_time = _post('recharged_time');
         $expiration = _post('expiration');
         $time = _post('time');
 
@@ -406,6 +417,12 @@ switch ($action) {
             run_hook('edit_customer_plan'); #HOOK
             $d->expiration = $expiration;
             $d->time = $time;
+            if (!empty($recharged_on)) {
+                $d->recharged_on = $recharged_on;
+            }
+            if (!empty($recharged_time)) {
+                $d->recharged_time = $recharged_time;
+            }
             // Track effective status so device calls use the correct value
             $effectiveStatus = $d['status'];
             if ($effectiveStatus == 'off' && strtotime($expiration . ' ' . $time) > time()) {
@@ -415,6 +432,8 @@ switch ($action) {
             $customer = User::_info($d['customer_id']);
             // plan changed: remove from old plan device before saving
             if ($oldPlanID != $id_plan) {
+                global $isChangePlan;
+                $isChangePlan = true;
                 $d->plan_id = $newPlan['id'];
                 $d->namebp = $newPlan['name_plan'];
                 if ($effectiveStatus == 'on') {

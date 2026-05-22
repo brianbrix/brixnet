@@ -47,11 +47,11 @@
                     <div class="form-group">
                         <label class="col-md-2 control-label">{Lang::T('Starts On')}</label>
                         <div class="col-md-4">
-                            <input type="date" class="form-control" readonly
+                            <input type="date" class="form-control" id="recharged_on" name="recharged_on"
                                 value="{$d['recharged_on']}">
                         </div>
                         <div class="col-md-2">
-                            <input type="text" class="form-control" placeholder="00:00:00" readonly
+                            <input type="text" class="form-control" id="recharged_time" name="recharged_time" placeholder="00:00:00"
                                 value="{$d['recharged_time']}">
                         </div>
                     </div>
@@ -78,5 +78,48 @@
         </div>
     </div>
 </div>
+
+<script>
+$(function() {
+    var planData = {$plan_data_json};
+    var periodDayExp = {$period_day_exp};
+    var planMap = {};
+    $.each(planData, function(i, p) { planMap[p.id] = p; });
+
+    $('#id_plan').on('change', function() {
+        var plan = planMap[$(this).val()];
+        if (!plan) return;
+
+        var exp = new Date();
+        switch (plan.validity_unit) {
+            case 'Days':
+                exp.setDate(exp.getDate() + plan.validity);
+                break;
+            case 'Months':
+                exp.setMonth(exp.getMonth() + plan.validity);
+                break;
+            case 'Period':
+                exp.setMonth(exp.getMonth() + plan.validity);
+                exp.setDate(periodDayExp);
+                exp.setHours(23, 59, 0, 0);
+                break;
+            case 'Hrs':
+                exp.setHours(exp.getHours() + plan.validity);
+                break;
+            case 'Mins':
+                exp.setMinutes(exp.getMinutes() + plan.validity);
+                break;
+        }
+
+        function pad(n) { return String(n).padStart(2, '0'); }
+        $('#expiration').val(
+            exp.getFullYear() + '-' + pad(exp.getMonth() + 1) + '-' + pad(exp.getDate())
+        );
+        if (plan.validity_unit === 'Hrs' || plan.validity_unit === 'Mins' || plan.validity_unit === 'Period') {
+            $('#time').val(pad(exp.getHours()) + ':' + pad(exp.getMinutes()) + ':' + pad(exp.getSeconds()));
+        }
+    });
+});
+</script>
 
 {include file="sections/footer.tpl"}
