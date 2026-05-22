@@ -80,19 +80,16 @@ class MikrotikHotspot
             throw new Exception('Hotspot user not found');
         }
 
-        $remainingUptime = $this->getRemainingHotspotLimitUptime($client, $plan, $customer['username'], $userState);
+        // Kick any active session before disabling.
+        // Do NOT change limit-uptime: after the session is removed RouterOS adds the
+        // session duration to the user's uptime counter, so limit-uptime − uptime
+        // already equals the correct remaining time without any adjustment.
+        // (uptime is a read-only RouterOS field; trying to set it would reject the
+        // whole API call and leave the user enabled.)
         $this->removeHotspotActiveUser($client, $customer['username']);
 
         $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
         $setRequest->setArgument('numbers', $userState['id']);
-        if ($remainingUptime !== null) {
-            // Store the exact remaining time and reset the accumulated uptime counter
-            // to 0 so that on resume: effective_remaining = limit-uptime − uptime = remaining − 0.
-            // Without the uptime reset, RouterOS would compute remaining − accumulated_uptime,
-            // which loses all the time the user had already spent before the pause.
-            $setRequest->setArgument('limit-uptime', $remainingUptime);
-            $setRequest->setArgument('uptime', '0s');
-        }
 
         $client->sendSync(
             $setRequest
