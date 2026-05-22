@@ -45,6 +45,7 @@ function customersBuildPausedPlan($plan, $pauseBandwidth)
     $pausedPlan = is_array($plan) ? $plan : $plan->as_array();
     $pausedPlan['id_bw'] = $pauseBandwidth['id'];
     $pausedPlan['name_plan'] = 'PAUSED-' . $pausedPlan['id'];
+    $pausedPlan['_pause_disabled'] = 1;
 
     return $pausedPlan;
 }
@@ -373,19 +374,7 @@ switch ($action) {
                 $p = ORM::for_table('tbl_plans')->where('id', $b['plan_id'])->find_one();
                 if ($p) {
                     $routers[] = $b['routers'];
-                    $dvc = Package::getDevice($p);
-                    if ($_app_stage != 'demo') {
-                        if (file_exists($dvc)) {
-                            require_once $dvc;
-                            if (method_exists($dvc, 'sync_customer')) {
-                                (new $p['device'])->sync_customer($c, $p);
-                            }else{
-                                (new $p['device'])->add_customer($c, $p);
-                            }
-                        } else {
-                            new Exception(Lang::T("Devices Not Found"));
-                        }
-                    }
+                    customersSyncPlanPauseState($c, $p, $b, !empty($b['is_paused']));
                 }
             }
             r2(getUrl('customers/view/') . $id_customer, 's', 'Sync success to ' . implode(", ", $routers));

@@ -193,16 +193,14 @@ class MikrotikHotspot
     {
         $mikrotik = $this->info($router_name);
         $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-        $printRequest = new RouterOS\Request(
-            '/ip hotspot active print',
-            RouterOS\Query::where('user', $customer['username'])
-        );
-        $id = $client->sendSync($printRequest)->getProperty('.id');
-        $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
-        $client->sendSync(
-            $removeRequest
-                ->setArgument('numbers', $id)
-        );
+        $ids = $this->getHotspotActiveUserIds($client, $customer['username']);
+        foreach ($ids as $id) {
+            $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
+            $client->sendSync(
+                $removeRequest
+                    ->setArgument('numbers', $id)
+            );
+        }
     }
 
     function set_customer_disabled($customer, $plan, $disabled)
@@ -427,6 +425,7 @@ class MikrotikHotspot
         if ($_app_stage == 'Demo') {
             return null;
         }
+        $disabledState = !empty($plan['_pause_disabled']) ? 'yes' : 'no';
         $addRequest = new RouterOS\Request('/ip/hotspot/user/add');
         if ($plan['typebp'] == "Limited") {
             if ($plan['limit_type'] == "Time_Limit") {
@@ -439,6 +438,7 @@ class MikrotikHotspot
                         ->setArgument('name', $customer['username'])
                         ->setArgument('profile', $plan['name_plan'])
                         ->setArgument('password', $customer['password'])
+                        ->setArgument('disabled', $disabledState)
                         ->setArgument('comment', $customer['fullname'] . ' | ' . implode(', ', User::getBillNames($customer['id'])))
                         ->setArgument('email', $customer['email'])
                         ->setArgument('limit-uptime', $timelimit)
@@ -453,6 +453,7 @@ class MikrotikHotspot
                         ->setArgument('name', $customer['username'])
                         ->setArgument('profile', $plan['name_plan'])
                         ->setArgument('password', $customer['password'])
+                        ->setArgument('disabled', $disabledState)
                         ->setArgument('comment', $customer['fullname'] . ' | ' . implode(', ', User::getBillNames($customer['id'])))
                         ->setArgument('email', $customer['email'])
                         ->setArgument('limit-bytes-total', $datalimit)
@@ -471,6 +472,7 @@ class MikrotikHotspot
                         ->setArgument('name', $customer['username'])
                         ->setArgument('profile', $plan['name_plan'])
                         ->setArgument('password', $customer['password'])
+                        ->setArgument('disabled', $disabledState)
                         ->setArgument('comment', $customer['fullname'] . ' | ' . implode(', ', User::getBillNames($customer['id'])))
                         ->setArgument('email', $customer['email'])
                         ->setArgument('limit-uptime', $timelimit)
@@ -482,11 +484,29 @@ class MikrotikHotspot
                 $addRequest
                     ->setArgument('name', $customer['username'])
                     ->setArgument('profile', $plan['name_plan'])
+                    ->setArgument('disabled', $disabledState)
                     ->setArgument('comment', $customer['fullname'] . ' | ' . implode(', ', User::getBillNames($customer['id'])))
                     ->setArgument('email', $customer['email'])
                     ->setArgument('password', $customer['password'])
             );
         }
+    }
+
+    function getHotspotActiveUserIds($client, $username)
+    {
+        $onlineRequest = new RouterOS\Request('/ip/hotspot/active/print');
+        $onlineRequest->setArgument('.proplist', '.id');
+        $onlineRequest->setQuery(RouterOS\Query::where('user', $username));
+
+        $ids = [];
+        foreach ($client->sendSync($onlineRequest) as $response) {
+            $id = $response->getProperty('.id');
+            if (!empty($id)) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
     }
 
     function setHotspotUser($client, $user, $pass)
@@ -529,14 +549,12 @@ class MikrotikHotspot
         if ($_app_stage == 'Demo') {
             return null;
         }
-        $onlineRequest = new RouterOS\Request('/ip/hotspot/active/print');
-        $onlineRequest->setArgument('.proplist', '.id');
-        $onlineRequest->setQuery(RouterOS\Query::where('user', $username));
-        $id = $client->sendSync($onlineRequest)->getProperty('.id');
-
-        $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
-        $removeRequest->setArgument('numbers', $id);
-        $client->sendSync($removeRequest);
+        $ids = $this->getHotspotActiveUserIds($client, $username);
+        foreach ($ids as $id) {
+            $removeRequest = new RouterOS\Request('/ip/hotspot/active/remove');
+            $removeRequest->setArgument('numbers', $id);
+            $client->sendSync($removeRequest);
+        }
     }
 
     function getIpHotspotUser($client, $username)
