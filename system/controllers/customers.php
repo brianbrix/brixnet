@@ -401,6 +401,16 @@ switch ($action) {
             $customer = ORM::for_table('tbl_customers')->find_one($id_customer);
             $plan = ORM::for_table('tbl_plans')->find_one($recharge['plan_id']);
 
+            $pauseStartedAt = !empty($recharge['paused_on']) ? strtotime($recharge['paused_on']) : 0;
+            if ($pauseStartedAt > 0) {
+                $pausedSeconds = max(0, time() - $pauseStartedAt);
+                if ($pausedSeconds > 0) {
+                    $newExpirationDateTime = strtotime($recharge['expiration'] . ' ' . $recharge['time']) + $pausedSeconds;
+                    $recharge->expiration = date('Y-m-d', $newExpirationDateTime);
+                    $recharge->time = date('H:i:s', $newExpirationDateTime);
+                }
+            }
+
             if ($customer && $plan) {
                 $dvc = Package::getDevice($plan);
                 if (file_exists($dvc)) {
@@ -440,6 +450,7 @@ switch ($action) {
                 $id_customer,
                 'Plan Resumed',
                 'Your internet plan "' . $recharge['namebp'] . '" has been resumed.' .
+                "\nNew expiry: " . Lang::dateAndTimeFormat($recharge['expiration'], $recharge['time']) .
                 "\n\nYou can now access the internet again."
             );
             

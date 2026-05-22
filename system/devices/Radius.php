@@ -130,6 +130,22 @@ class Radius
     {
         $this->delAtribute($this->getTableCustomer(), 'Auth-Type', 'username', $customer['username']);
 
+        $recharge = ORM::for_table('tbl_user_recharges')
+            ->where('username', $customer['username'])
+            ->where('status', 'on')
+            ->order_by_desc('id')
+            ->find_one();
+
+        if ($recharge) {
+            $expirationAt = strtotime($recharge['expiration'] . ' ' . $recharge['time']);
+            $pausedAt = !empty($recharge['paused_on']) ? strtotime($recharge['paused_on']) : 0;
+            if ($pausedAt > 0) {
+                $expirationAt += max(0, time() - $pausedAt);
+            }
+
+            return $this->customerAddPlan($customer, $plan, date('Y-m-d H:i:s', $expirationAt));
+        }
+
         return $this->customerUpsert($customer, $plan);
     }
 

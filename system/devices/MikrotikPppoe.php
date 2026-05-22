@@ -83,6 +83,51 @@ class MikrotikPppoe
         $this->add_customer($customer, $plan);
     }
 
+    function pause_customer($customer, $plan)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $cid = $this->getIdByCustomer($customer, $client);
+
+        if (empty($cid)) {
+            throw new Exception('PPPoE user not found');
+        }
+
+        $this->removePpoeActive($client, $customer['username']);
+        if (!empty($customer['pppoe_username'])) {
+            $this->removePpoeActive($client, $customer['pppoe_username']);
+        }
+
+        $setRequest = new RouterOS\Request('/ppp/secret/set');
+        $client->sendSync(
+            $setRequest
+                ->setArgument('numbers', $cid)
+                ->setArgument('disabled', 'yes')
+        );
+
+        return true;
+    }
+
+    function resume_customer($customer, $plan)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $cid = $this->getIdByCustomer($customer, $client);
+
+        if (empty($cid)) {
+            throw new Exception('PPPoE user not found');
+        }
+
+        $setRequest = new RouterOS\Request('/ppp/secret/set');
+        $client->sendSync(
+            $setRequest
+                ->setArgument('numbers', $cid)
+                ->setArgument('disabled', 'no')
+        );
+
+        return true;
+    }
+
     function remove_customer($customer, $plan)
     {
         $mikrotik = $this->info($plan['routers']);
