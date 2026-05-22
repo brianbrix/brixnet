@@ -69,19 +69,23 @@ class MikrotikHotspot
     {
         $mikrotik = $this->info($plan['routers']);
         $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-        $userId = $this->getHotspotUserId($client, $customer['username']);
+        $userState = $this->getHotspotUserState($client, $customer['username']);
 
-        if (empty($userId)) {
-            return false;
+        if (empty($userState['id'])) {
+            throw new Exception('Hotspot user not found');
         }
 
+        $remainingUptime = $this->getRemainingHotspotLimitUptime($client, $plan, $customer['username'], $userState);
         $this->removeHotspotActiveUser($client, $customer['username']);
 
         $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
+        $setRequest->setArgument('numbers', $userState['id']);
+        if ($remainingUptime !== null) {
+            $setRequest->setArgument('limit-uptime', $remainingUptime);
+        }
+
         $client->sendSync(
             $setRequest
-                ->setArgument('numbers', $userId)
-                ->setArgument('profile', $plan['name_plan'])
                 ->setArgument('disabled', 'yes')
         );
 
@@ -92,18 +96,16 @@ class MikrotikHotspot
     {
         $mikrotik = $this->info($plan['routers']);
         $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
-        $userId = $this->getHotspotUserId($client, $customer['username']);
+        $userState = $this->getHotspotUserState($client, $customer['username']);
 
-        if (empty($userId)) {
-            $this->add_customer($customer, $plan);
-            return false;
+        if (empty($userState['id'])) {
+            throw new Exception('Hotspot user not found');
         }
 
         $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
         $client->sendSync(
             $setRequest
-                ->setArgument('numbers', $userId)
-                ->setArgument('profile', $plan['name_plan'])
+                ->setArgument('numbers', $userState['id'])
                 ->setArgument('disabled', 'no')
         );
 
@@ -554,6 +556,155 @@ class MikrotikHotspot
         $printRequest->setQuery(RouterOS\Query::where('name', $username));
 
         return $client->sendSync($printRequest)->getProperty('.id');
+    }
+
+    protected function getHotspotUserState($client, $username)
+    {
+        $printRequest = new RouterOS\Request('/ip/hotspot/user/print');
+        $printRequest->setArgument('.proplist', '.id,limit-uptime,limit-bytes-total,uptime');
+        $printRequest->setQuery(RouterOS\Query::where('name', $username));
+
+        $response = $client->sendSync($printRequest);
+
+        return [
+            'id' => $response->getProperty('.id'),
+            'limit_uptime' => trim((string) $response->getProperty('limit-uptime')),
+            'limit_bytes_total' => trim((string) $response->getProperty('limit-bytes-total')),
+            'uptime' => trim((string) $response->getProperty('uptime')),
+        ];
+    }
+
+    protected function getRemainingHotspotLimitUptime($client, $plan, $username, array $userState)
+    {
+        if ($plan['typebp'] !== 'Limited' || !in_array($plan['limit_type'], ['Time_Limit', 'Both_Limit'])) {
+            return null;
+        }
+
+        $sessionTimeLeft = $this->getHotspotActiveSessionTimeLeft($client, $username);
+        if ($sessionTimeLeft !== null) {
+            return $sessionTimeLeft;
+        }
+
+        $limitSeconds = $this->routerOsTimeToSeconds($userState['limit_uptime']);
+        if ($limitSeconds <= 0) {
+            return null;
+        }
+
+        $usedSeconds = $this->routerOsTimeToSeconds($userState['uptime']);
+        $remainingSeconds = max($limitSeconds - $usedSeconds, 0);
+
+        if ($remainingSeconds <= 0) {
+            return null;
+        }
+
+        return $this->secondsToRouterOsTime($remainingSeconds);
+    }
+
+    protected function getHotspotActiveSessionTimeLeft($client, $username)
+    {
+        $onlineRequest = new RouterOS\Request('/ip/hotspot/active/print');
+        $onlineRequest->setArgument('.proplist', 'session-time-left');
+        $onlineRequest->setQuery(RouterOS\Query::where('user', $username));
+
+        $sessions = $client->sendSync($onlineRequest);
+        $remainingSeconds = null;
+
+        foreach ($sessions as $session) {
+            if ($session->getType() !== RouterOS\Response::TYPE_DATA) {
+                continue;
+            }
+
+            $sessionTimeLeft = trim((string) $session->getProperty('session-time-left'));
+            if ($sessionTimeLeft === '') {
+                continue;
+            }
+
+            $sessionSeconds = $this->routerOsTimeToSeconds($sessionTimeLeft);
+            if ($sessionSeconds <= 0) {
+                continue;
+            }
+
+            if ($remainingSeconds === null || $sessionSeconds < $remainingSeconds) {
+                $remainingSeconds = $sessionSeconds;
+            }
+        }
+
+        if ($remainingSeconds === null) {
+            return null;
+        }
+
+        return $this->secondsToRouterOsTime($remainingSeconds);
+    }
+
+    protected function routerOsTimeToSeconds($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '' || $value === '0') {
+            return 0;
+        }
+
+        if (preg_match('/^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+):(\d{2}):(\d{2}))$/', $value, $matches)) {
+            return ((int) ($matches[1] ?: 0) * 7 * 24 * 60 * 60)
+                + ((int) ($matches[2] ?: 0) * 24 * 60 * 60)
+                + ((int) $matches[3] * 60 * 60)
+                + ((int) $matches[4] * 60)
+                + (int) $matches[5];
+        }
+
+        if (preg_match('/^(\d+):(\d{2}):(\d{2})$/', $value, $matches)) {
+            return ((int) $matches[1] * 60 * 60)
+                + ((int) $matches[2] * 60)
+                + (int) $matches[3];
+        }
+
+        if (preg_match_all('/(\d+)([wdhms])/', $value, $matches, PREG_SET_ORDER)) {
+            $seconds = 0;
+            foreach ($matches as $match) {
+                switch ($match[2]) {
+                    case 'w':
+                        $seconds += (int) $match[1] * 7 * 24 * 60 * 60;
+                        break;
+                    case 'd':
+                        $seconds += (int) $match[1] * 24 * 60 * 60;
+                        break;
+                    case 'h':
+                        $seconds += (int) $match[1] * 60 * 60;
+                        break;
+                    case 'm':
+                        $seconds += (int) $match[1] * 60;
+                        break;
+                    case 's':
+                        $seconds += (int) $match[1];
+                        break;
+                }
+            }
+            return $seconds;
+        }
+
+        return 0;
+    }
+
+    protected function secondsToRouterOsTime($seconds)
+    {
+        $seconds = max(0, (int) $seconds);
+        $weeks = intdiv($seconds, 7 * 24 * 60 * 60);
+        $seconds -= $weeks * 7 * 24 * 60 * 60;
+        $days = intdiv($seconds, 24 * 60 * 60);
+        $seconds -= $days * 24 * 60 * 60;
+        $hours = intdiv($seconds, 60 * 60);
+        $seconds -= $hours * 60 * 60;
+        $minutes = intdiv($seconds, 60);
+        $seconds -= $minutes * 60;
+
+        $prefix = '';
+        if ($weeks > 0) {
+            $prefix .= $weeks . 'w';
+        }
+        if ($days > 0) {
+            $prefix .= $days . 'd';
+        }
+
+        return $prefix . sprintf('%02d:%02d:%02d', $hours, $minutes, $seconds);
     }
 
     function removeHotspotActiveUser($client, $username)
