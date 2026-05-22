@@ -169,6 +169,15 @@
                                     <td>
                                         <a href="{Text::url('services/edit/')}{$ds['id']}"
                                             class="btn btn-info btn-xs">{Lang::T('Edit')}</a>
+                                        {if $ds['enabled']}
+                                            <a href="{Text::url('services/toggle-enabled/')}{$ds['id']}"
+                                                onclick="return ask(this, '{Lang::T('Disable this plan')}?')"
+                                                class="btn btn-warning btn-xs" title="{Lang::T('Disable')}"><i class="glyphicon glyphicon-ban-circle"></i></a>
+                                        {else}
+                                            <a href="{Text::url('services/toggle-enabled/')}{$ds['id']}"
+                                                onclick="return ask(this, '{Lang::T('Enable this plan')}?')"
+                                                class="btn btn-success btn-xs" title="{Lang::T('Enable')}"><i class="glyphicon glyphicon-ok-circle"></i></a>
+                                        {/if}
                                         <a href="{Text::url('services/delete/')}{$ds['id']}" id="{$ds['id']}"
                                             onclick="return ask(this, '{Lang::T('Delete')}?')"
                                             class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i></a>

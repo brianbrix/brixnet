@@ -226,6 +226,31 @@ switch ($action) {
         }
         break;
 
+    case 'toggle-enabled':
+        $id = $routes['2'];
+        $d = ORM::for_table('tbl_plans')->find_one($id);
+        if ($d) {
+            $d->enabled = $d->enabled ? 0 : 1;
+            $d->save();
+            $back = ($d->type == 'PPPOE') ? 'services/pppoe' : 'services/hotspot';
+            $msg = $d->enabled ? Lang::T('Plan Enabled') : Lang::T('Plan Disabled');
+            r2(getUrl($back), 's', $msg);
+        }
+        r2(getUrl('services/hotspot'), 'e', Lang::T('Plan not found'));
+        break;
+
+    case 'pppoe-toggle-enabled':
+        $id = $routes['2'];
+        $d = ORM::for_table('tbl_plans')->find_one($id);
+        if ($d) {
+            $d->enabled = $d->enabled ? 0 : 1;
+            $d->save();
+            $msg = $d->enabled ? Lang::T('Plan Enabled') : Lang::T('Plan Disabled');
+            r2(getUrl('services/pppoe'), 's', $msg);
+        }
+        r2(getUrl('services/pppoe'), 'e', Lang::T('Plan not found'));
+        break;
+
     case 'add-post':
         $name = _post('name');
         $plan_type = _post('plan_type'); //Personal / Business
