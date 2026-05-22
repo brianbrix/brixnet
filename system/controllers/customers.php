@@ -96,6 +96,11 @@ function customersSyncPlanPauseState($customer, $plan, $recharge, $pause)
         $device->add_plan($targetPlan);
     }
 
+    if (method_exists($device, 'sync_pause_state')) {
+        $device->sync_pause_state($customer, $targetPlan, $pause);
+        return;
+    }
+
     $device->add_customer($customer, $targetPlan);
 
     if (method_exists($device, 'set_customer_disabled')) {

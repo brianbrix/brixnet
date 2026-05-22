@@ -65,6 +65,32 @@ class MikrotikHotspot
 		}
 	}
 
+    function sync_pause_state($customer, $plan, $pause)
+    {
+        $mikrotik = $this->info($plan['routers']);
+        $client = $this->getClient($mikrotik['ip_address'], $mikrotik['username'], $mikrotik['password']);
+        $printRequest = new RouterOS\Request('/ip/hotspot/user/print');
+        $printRequest->setArgument('.proplist', '.id');
+        $printRequest->setQuery(RouterOS\Query::where('name', $customer['username']));
+        $userId = $client->sendSync($printRequest)->getProperty('.id');
+
+        if (empty($userId)) {
+            $this->add_customer($customer, $plan);
+        } else {
+            $setRequest = new RouterOS\Request('/ip/hotspot/user/set');
+            $client->sendSync(
+                $setRequest
+                    ->setArgument('numbers', $userId)
+                    ->setArgument('profile', $plan['name_plan'])
+                    ->setArgument('disabled', $pause ? 'yes' : 'no')
+            );
+        }
+
+        if ($pause) {
+            $this->removeHotspotActiveUser($client, $customer['username']);
+        }
+    }
+
 
     function remove_customer($customer, $plan)
     {
