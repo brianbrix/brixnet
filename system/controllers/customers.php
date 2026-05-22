@@ -20,98 +20,6 @@ $leafletpickerHeader = <<<EOT
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css">
 EOT;
 
-function customersGetPauseBandwidth()
-{
-    $bandwidthName = 'Paused Zero Bandwidth';
-    $bandwidth = ORM::for_table('tbl_bandwidth')->where('name_bw', $bandwidthName)->find_one();
-    if ($bandwidth) {
-        return $bandwidth;
-    }
-
-    $bandwidth = ORM::for_table('tbl_bandwidth')->create();
-    $bandwidth->name_bw = $bandwidthName;
-    $bandwidth->rate_down = 0;
-    $bandwidth->rate_down_unit = 'Kbps';
-    $bandwidth->rate_up = 0;
-    $bandwidth->rate_up_unit = 'Kbps';
-    $bandwidth->burst = '';
-    $bandwidth->save();
-
-    return $bandwidth;
-}
-
-function customersBuildPausedPlan($plan, $pauseBandwidth)
-{
-    $pausedPlan = is_array($plan) ? $plan : $plan->as_array();
-    $pausedPlan['id_bw'] = $pauseBandwidth['id'];
-    $pausedPlan['name_plan'] = 'PAUSED-' . $pausedPlan['id'];
-    $pausedPlan['_pause_disabled'] = 1;
-
-    return $pausedPlan;
-}
-
-function customersGetPlanDeviceInstance($plan)
-{
-    $devicePath = Package::getDevice($plan);
-    if (!file_exists($devicePath)) {
-        throw new Exception(Lang::T('Devices Not Found'));
-    }
-
-    require_once $devicePath;
-    $deviceClass = $plan['device'];
-
-    return new $deviceClass();
-}
-
-function customersSyncPlanPauseState($customer, $plan, $recharge, $pause)
-{
-    global $_app_stage;
-
-    if ($_app_stage == 'demo') {
-        return;
-    }
-
-    $basePlan = is_array($plan) ? $plan : $plan->as_array();
-    $device = customersGetPlanDeviceInstance($plan);
-
-    if (!empty($basePlan['is_radius']) && method_exists($device, 'customerAddPlan')) {
-        $targetPlan = $pause
-            ? customersBuildPausedPlan($basePlan, customersGetPauseBandwidth())
-            : $basePlan;
-
-        $device->customerAddPlan($customer, $targetPlan, $recharge['expiration'] . ' ' . $recharge['time']);
-
-        if ($pause && method_exists($device, 'customerDeactivate')) {
-            $device->customerDeactivate($customer['username'], true);
-        }
-
-        return;
-    }
-
-    $targetPlan = $pause
-        ? customersBuildPausedPlan($basePlan, customersGetPauseBandwidth())
-        : $basePlan;
-
-    if (method_exists($device, 'add_plan')) {
-        $device->add_plan($targetPlan);
-    }
-
-    if (method_exists($device, 'sync_pause_state')) {
-        $device->sync_pause_state($customer, $targetPlan, $pause);
-        return;
-    }
-
-    $device->add_customer($customer, $targetPlan);
-
-    if (method_exists($device, 'set_customer_disabled')) {
-        $device->set_customer_disabled($customer, $targetPlan, $pause);
-    }
-
-    if (method_exists($device, 'disconnect_customer')) {
-        $device->disconnect_customer($customer, $basePlan['routers']);
-    }
-}
-
 switch ($action) {
     case 'csv':
         if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
@@ -379,7 +287,19 @@ switch ($action) {
                 $p = ORM::for_table('tbl_plans')->where('id', $b['plan_id'])->find_one();
                 if ($p) {
                     $routers[] = $b['routers'];
-                    customersSyncPlanPauseState($c, $p, $b, !empty($b['is_paused']));
+                    $dvc = Package::getDevice($p);
+                    if ($_app_stage != 'demo') {
+                        if (file_exists($dvc)) {
+                            require_once $dvc;
+                            if (method_exists($dvc, 'sync_customer')) {
+                                (new $p['device'])->sync_customer($c, $p);
+                            }else{
+                                (new $p['device'])->add_customer($c, $p);
+                            }
+                        } else {
+                            new Exception(Lang::T("Devices Not Found"));
+                        }
+                    }
                 }
             }
             r2(getUrl('customers/view/') . $id_customer, 's', 'Sync success to ' . implode(", ", $routers));
@@ -407,24 +327,6 @@ switch ($action) {
             }
             
             $reason = _post('pause_reason') ?: '';
-
-            $customer = ORM::for_table('tbl_customers')->find_one($id_customer);
-            $plan = ORM::for_table('tbl_plans')->find_one($recharge['plan_id']);
-            if (!$customer || !$plan) {
-                r2(getUrl('customers/view/') . $id_customer, 'e', 'Cannot find plan settings');
-            }
-
-            try {
-                customersSyncPlanPauseState($customer, $plan, $recharge, true);
-            } catch (Throwable $e) {
-                Message::sendTelegram(
-                    "System Error. When pause Package. Manual sync may be required\n" .
-                    "Customer: u{$recharge['username']}\n" .
-                    "Plan: p{$recharge['namebp']}\n" .
-                    $e->getMessage()
-                );
-                r2(getUrl('customers/view/') . $id_customer, 'e', 'Failed to pause the plan on the device');
-            }
             
             // Pause the plan
             $recharge->is_paused = 1;
@@ -478,27 +380,12 @@ switch ($action) {
             if (!$recharge['is_paused']) {
                 r2(getUrl('customers/view/') . $id_customer, 'e', 'Plan is not paused');
             }
-
-            $customer = ORM::for_table('tbl_customers')->find_one($id_customer);
-            $plan = ORM::for_table('tbl_plans')->find_one($recharge['plan_id']);
-            if (!$customer || !$plan) {
-                r2(getUrl('customers/view/') . $id_customer, 'e', 'Cannot find plan settings');
-            }
-
-            try {
-                customersSyncPlanPauseState($customer, $plan, $recharge, false);
-            } catch (Throwable $e) {
-                Message::sendTelegram(
-                    "System Error. When resume Package. Manual sync may be required\n" .
-                    "Customer: u{$recharge['username']}\n" .
-                    "Plan: p{$recharge['namebp']}\n" .
-                    $e->getMessage()
-                );
-                r2(getUrl('customers/view/') . $id_customer, 'e', 'Failed to resume the plan on the device');
-            }
             
             // Resume the plan
             $recharge->is_paused = 0;
+            $recharge->paused_on = NULL;
+            $recharge->paused_by_admin_id = NULL;
+            $recharge->pause_reason = NULL;
             $recharge->save();
             
             // Log resume action
