@@ -203,13 +203,13 @@ try {
                     ], 401);
                 }
             }
-            $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username'")->find_one();
+            $tur = find_active_recharge_by_username($username);
             if (!$tur) {
                 // if check if pppoe_username
                 $c = ORM::for_table('tbl_customers')->select('username')->select('pppoe_password')->whereRaw("BINARY pppoe_username = '$username'")->find_one();
                 if ($c) {
                     $username = $c['username'];
-                    $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username'")->find_one();
+                    $tur = find_active_recharge_by_username($username);
                 }
             }
             if ($tur) {
@@ -232,6 +232,7 @@ try {
                         }
                     }
                 }
+                reject_paused_recharge($tur);
                 process_radiust_rest($tur, $code);
             } else {
                 // Fallback: if no active recharge was found, still try voucher lookup
@@ -258,11 +259,7 @@ try {
                                     ->find_one();
                                 if (!$tur) {
                                     // Broader fallback: use latest active recharge for username.
-                                    $tur = ORM::for_table('tbl_user_recharges')
-                                        ->whereRaw("BINARY username = '$username'")
-                                        ->where('status', 'on')
-                                        ->order_by_desc('id')
-                                        ->find_one();
+                                    $tur = find_active_recharge_by_username($username);
                                 }
                                 if (!$tur) {
                                     // Fallback recovery: if rechargeUser completed but no active
@@ -298,6 +295,7 @@ try {
                                     $v->status = "1";
                                     $v->used_date = date('Y-m-d H:i:s');
                                     $v->save();
+                                    reject_paused_recharge($tur);
                                     process_radiust_rest($tur, $code);
                                 } else {
                                     show_radius_result(['Reply-Message' => 'Voucher activation failed.'], 401);
@@ -364,13 +362,13 @@ try {
                 $d->acctstoptime = date('Y-m-d H:i:s');
             }
             // pastikan data akunting yang disimpan memang customer aktif phpnuxbill
-            $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username' AND `status` = 'on' AND `routers` = 'radius'")->find_one();
+            $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username' AND `status` = 'on' AND `routers` = 'radius'")->order_by_desc('id')->find_one();
             if (!$tur) {
                 // check if pppoe_username
                 $c = ORM::for_table('tbl_customers')->select('username')->whereRaw("BINARY pppoe_username = '$username'")->find_one();
                 if ($c) {
                     $username = $c['username'];
-                    $tur = ORM::for_table('tbl_user_recharges')->whereRaw("BINARY username = '$username'")->find_one();
+                    $tur = find_active_recharge_by_username($username);
                 }
             }
             if ($tur) {
@@ -411,6 +409,32 @@ try {
     show_radius_result(['Reply-Message' => 'Command Failed : ' . $action], 401);
 }
 show_radius_result(['Reply-Message' => 'Invalid Command : ' . $action], 401);
+
+function reject_paused_recharge($tur)
+{
+    if (empty($tur) || empty($tur['is_paused'])) {
+        return;
+    }
+
+    $message = 'Your plan is currently paused';
+    if (!empty($tur['pause_reason'])) {
+        $message .= '. Reason: ' . $tur['pause_reason'];
+    }
+
+    show_radius_result([
+        'control:Auth-Type' => 'Reject',
+        'reply:Reply-Message' => $message,
+    ], 401);
+}
+
+function find_active_recharge_by_username($username)
+{
+    return ORM::for_table('tbl_user_recharges')
+        ->whereRaw("BINARY username = '$username'")
+        ->where('status', 'on')
+        ->order_by_desc('id')
+        ->find_one();
+}
 
 function process_radiust_rest($tur, $code)
 {

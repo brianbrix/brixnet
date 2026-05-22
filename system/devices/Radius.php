@@ -113,6 +113,26 @@ class Radius
         $this->customerAddPlan($customer, $plan, $date_exp . ' ' . $time);
     }
 
+    function pause_customer($customer, $plan)
+    {
+        $this->disconnectCustomer($customer['username']);
+        $this->upsertCustomer($customer['username'], 'Auth-Type', 'Reject');
+        $this->upsertCustomer(
+            $customer['username'],
+            'Cleartext-Password',
+            md5(time() . $customer['username'] . mt_rand())
+        );
+
+        return true;
+    }
+
+    function resume_customer($customer, $plan)
+    {
+        $this->delAtribute($this->getTableCustomer(), 'Auth-Type', 'username', $customer['username']);
+
+        return $this->customerUpsert($customer, $plan);
+    }
+
     function remove_customer($customer, $plan)
     {
         if (!empty($plan['plan_expired'])) {
