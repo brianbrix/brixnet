@@ -78,23 +78,23 @@ switch ($action) {
         if (in_array($admin['user_type'], array('SuperAdmin', 'Admin'))) {
             switch ($server) {
                 case 'radius':
-                    $d = ORM::for_table('tbl_plans')->where('is_radius', 1)->where('type', $jenis)->where('enabled', 1)->find_many();
+                    $d = ORM::for_table('tbl_plans')->where('is_radius', 1)->where('type', $jenis)->find_many();
                     break;
                 case '':
                     break;
                 default:
-                    $d = ORM::for_table('tbl_plans')->where('routers', $server)->where('type', $jenis)->where('enabled', 1)->find_many();
+                    $d = ORM::for_table('tbl_plans')->where('routers', $server)->where('type', $jenis)->find_many();
                     break;
             }
         } else {
             switch ($server) {
                 case 'radius':
-                    $d = ORM::for_table('tbl_plans')->where('is_radius', 1)->where('type', $jenis)->where('enabled', 1)->find_many();
+                    $d = ORM::for_table('tbl_plans')->where('is_radius', 1)->where('type', $jenis)->find_many();
                     break;
                 case '':
                     break;
                 default:
-                    $d = ORM::for_table('tbl_plans')->where('routers', $server)->where('type', $jenis)->where('enabled', 1)->find_many();
+                    $d = ORM::for_table('tbl_plans')->where('routers', $server)->where('type', $jenis)->find_many();
                     break;
             }
         }

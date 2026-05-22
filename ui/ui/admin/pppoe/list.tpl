@@ -132,7 +132,7 @@
                         </thead>
                         <tbody>
                             {foreach $d as $ds}
-                                <tr {if $ds['enabled'] !=1}class="danger" title="disabled" {/if}>
+                                <tr {if $ds['enabled'] !=1}class="danger" title="hidden from portal" {/if}>
                                     <td>{$ds['name_plan']}</td>
                                     <td>{$ds['plan_type']} {if $ds['prepaid'] !=
                                         'yes'}<b>{Lang::T('Postpaid')}</b>
@@ -166,12 +166,12 @@
                                         class="btn btn-info btn-xs">{Lang::T('Edit')}</a>
                                     {if $ds['enabled']}
                                         <a href="{Text::url('')}services/pppoe-toggle-enabled/{$ds['id']}"
-                                            onclick="return ask(this, '{Lang::T('Disable this plan')}?')"
-                                            class="btn btn-warning btn-xs" title="{Lang::T('Disable')}"><i class="glyphicon glyphicon-ban-circle"></i></a>
+                                            onclick="return ask(this, '{Lang::T('Hide this plan from customer portal')}?')"
+                                            class="btn btn-warning btn-xs" title="{Lang::T('Hide from Portal')}"><i class="glyphicon glyphicon-eye-close"></i></a>
                                     {else}
                                         <a href="{Text::url('')}services/pppoe-toggle-enabled/{$ds['id']}"
-                                            onclick="return ask(this, '{Lang::T('Enable this plan')}?')"
-                                            class="btn btn-success btn-xs" title="{Lang::T('Enable')}"><i class="glyphicon glyphicon-ok-circle"></i></a>
+                                            onclick="return ask(this, '{Lang::T('Show this plan in customer portal')}?')"
+                                            class="btn btn-success btn-xs" title="{Lang::T('Show in Portal')}"><i class="glyphicon glyphicon-eye-open"></i></a>
                                     {/if}
                                     <a href="{Text::url('')}services/pppoe-delete/{$ds['id']}"
                                         onclick="return ask(this, '{Lang::T('Delete')}?')" id="{$ds['id']}"

@@ -233,7 +233,7 @@ switch ($action) {
             $d->enabled = $d->enabled ? 0 : 1;
             $d->save();
             $back = ($d->type == 'PPPOE') ? 'services/pppoe' : 'services/hotspot';
-            $msg = $d->enabled ? Lang::T('Plan Enabled') : Lang::T('Plan Disabled');
+            $msg = $d->enabled ? Lang::T('Plan visible in customer portal') : Lang::T('Plan hidden from customer portal');
             r2(getUrl($back), 's', $msg);
         }
         r2(getUrl('services/hotspot'), 'e', Lang::T('Plan not found'));
@@ -245,7 +245,7 @@ switch ($action) {
         if ($d) {
             $d->enabled = $d->enabled ? 0 : 1;
             $d->save();
-            $msg = $d->enabled ? Lang::T('Plan Enabled') : Lang::T('Plan Disabled');
+            $msg = $d->enabled ? Lang::T('Plan visible in customer portal') : Lang::T('Plan hidden from customer portal');
             r2(getUrl('services/pppoe'), 's', $msg);
         }
         r2(getUrl('services/pppoe'), 'e', Lang::T('Plan not found'));
@@ -291,7 +291,7 @@ switch ($action) {
         }
         $d = ORM::for_table('tbl_plans')->where('name_plan', $name)->where('type', 'Hotspot')->find_one();
         if ($d) {
-            $msg .= Lang::T('Name Plan Already Exist') . '<br>';
+            $msg .= Lang::T('Plan with a similar name already exists.') . '<br>';
         }
 
         run_hook('add_plan'); #HOOK
