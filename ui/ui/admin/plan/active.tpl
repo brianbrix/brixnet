@@ -113,7 +113,7 @@
 
                                     </td>
                                     <td>{$ds['type']}</td>
-                                    <td>{Lang::dateAndTimeFormat(date('Y-m-d', strtotime($ds['transaction_created_at'])), date('H:i', strtotime($ds['transaction_created_at'])))}</td>
+                                    <td>{Lang::dateAndTimeFormat($ds['transaction_created_date'], $ds['transaction_created_time'])}</td>
                                     <td>{Lang::dateAndTimeFormat($ds['recharged_on'],$ds['recharged_time'])}</td>
                                     <td>{Lang::dateAndTimeFormat($ds['expiration'],$ds['time'])}</td>
                                     <td>{$ds['method']}</td>

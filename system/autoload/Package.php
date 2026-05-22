@@ -242,6 +242,17 @@ class Package
                 try {
                     if (file_exists($dvc)) {
                         require_once $dvc;
+                        if ($isChangePlan && $b['status'] == 'on') {
+                            $oldPlan = ORM::for_table('tbl_plans')->find_one($b['plan_id']);
+                            if ($oldPlan) {
+                                $oldDvc = Package::getDevice($oldPlan);
+                                if (file_exists($oldDvc)) {
+                                    require_once $oldDvc;
+                                    $oldPlan['plan_expired'] = 0;
+                                    (new $oldPlan['device'])->remove_customer($c, $oldPlan);
+                                }
+                            }
+                        }
                         (new $p['device'])->add_customer($c, $p);
                     } else {
                         new Exception(Lang::T("Devices Not Found"));

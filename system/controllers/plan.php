@@ -33,6 +33,78 @@ document.addEventListener("DOMContentLoaded", function(event) {
 </script>
 EOT;
 getUrl('docs');
+
+if (!function_exists('planTransactionCreatedParts')) {
+    function planTransactionCreatedParts($transactionCreatedAt, $fallbackDate, $fallbackTime)
+    {
+        global $config;
+
+        if (empty($transactionCreatedAt) || strtotime($transactionCreatedAt) < strtotime('2000-01-01 00:00:00')) {
+            return [$fallbackDate, $fallbackTime];
+        }
+
+        try {
+            $createdAt = new DateTime($transactionCreatedAt, new DateTimeZone('UTC'));
+            $createdAt->setTimezone(new DateTimeZone(!empty($config['timezone']) ? $config['timezone'] : date_default_timezone_get()));
+
+            return [$createdAt->format('Y-m-d'), $createdAt->format('H:i:s')];
+        } catch (Exception $e) {
+            return [$fallbackDate, $fallbackTime];
+        }
+    }
+}
+
+if (!function_exists('planCalculateRechargeExpiry')) {
+    function planCalculateRechargeExpiry($plan, $customerId, $startDate, $startTime)
+    {
+        $startDate = !empty($startDate) ? $startDate : date('Y-m-d');
+        $startTime = !empty($startTime) ? $startTime : date('H:i:s');
+        if (preg_match('/^\d{2}:\d{2}$/', $startTime)) {
+            $startTime .= ':00';
+        }
+
+        switch ($plan['validity_unit']) {
+            case 'Months':
+                return [
+                    date('Y-m-d', strtotime($startDate . ' +' . $plan['validity'] . ' months')),
+                    $startTime,
+                ];
+
+            case 'Period':
+                $dayExp = User::getAttribute('Expired Date', $customerId);
+                if (!$dayExp) {
+                    $dayExp = ($plan['prepaid'] == 'no' && !empty($plan['expired_date'])) ? $plan['expired_date'] : 20;
+                }
+                $dayExp = (int)$dayExp;
+                if ($dayExp < 1 || $dayExp > 28) {
+                    $dayExp = 20;
+                }
+
+                return [
+                    date('Y-m-' . $dayExp, strtotime($startDate . ' +' . $plan['validity'] . ' months')),
+                    '23:59:00',
+                ];
+
+            case 'Days':
+                return [
+                    date('Y-m-d', strtotime($startDate . ' +' . $plan['validity'] . ' days')),
+                    $startTime,
+                ];
+
+            case 'Hrs':
+                $dateTime = explode(' ', date('Y-m-d H:i:s', strtotime($startDate . ' ' . $startTime . ' +' . $plan['validity'] . ' hours')));
+                return [$dateTime[0], $dateTime[1]];
+
+            case 'Mins':
+                $dateTime = explode(' ', date('Y-m-d H:i:s', strtotime($startDate . ' ' . $startTime . ' +' . $plan['validity'] . ' minutes')));
+                return [$dateTime[0], $dateTime[1]];
+
+            default:
+                return [$startDate, $startTime];
+        }
+    }
+}
+
 switch ($action) {
     case 'sync':
         if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
@@ -334,6 +406,9 @@ switch ($action) {
             ->find_one($id);
         if ($d) {
             $ui->assign('d', $d);
+            list($createdOnDate, $createdOnTime) = planTransactionCreatedParts($d['transaction_created_at'], $d['recharged_on'], $d['recharged_time']);
+            $ui->assign('created_on_date', $createdOnDate);
+            $ui->assign('created_on_time', $createdOnTime);
             $p = ORM::for_table('tbl_plans')->find_one($d['plan_id']);
             if (in_array($admin['user_type'], array('SuperAdmin', 'Admin'))) {
                 $ps = ORM::for_table('tbl_plans')
@@ -354,10 +429,12 @@ switch ($action) {
                     'id'            => (int)$_plan['id'],
                     'validity'      => (int)$_plan['validity'],
                     'validity_unit' => $_plan['validity_unit'],
+                    'expired_date'  => (int)$_plan['expired_date'],
+                    'prepaid'       => $_plan['prepaid'],
                 ];
             }
             $ui->assign('plan_data_json', json_encode($planValidityData));
-            $ui->assign('period_day_exp', (int)($config['period_day_exp'] ?? 1));
+            $ui->assign('customer_period_day_exp', (int)User::getAttribute('Expired Date', $d['customer_id']));
             run_hook('view_edit_customer_plan'); #HOOK
             $ui->assign('_title', 'Edit Plan');
             $ui->display('admin/plan/edit.tpl');
@@ -415,6 +492,24 @@ switch ($action) {
         }
         if ($msg == '') {
             run_hook('edit_customer_plan'); #HOOK
+            $oldExpiration = $d['expiration'];
+            $oldTime = $d['time'];
+            $oldRechargedOn = $d['recharged_on'];
+            $oldRechargedTime = $d['recharged_time'];
+            $startDate = !empty($recharged_on) ? $recharged_on : $oldRechargedOn;
+            $startTime = !empty($recharged_time) ? $recharged_time : $oldRechargedTime;
+            $shouldRefreshExpiry = (
+                $oldPlanID != $id_plan ||
+                $startDate != $oldRechargedOn ||
+                $startTime != $oldRechargedTime
+            ) && (
+                empty($expiration) ||
+                empty($time) ||
+                ($expiration == $oldExpiration && $time == $oldTime)
+            );
+            if ($shouldRefreshExpiry) {
+                list($expiration, $time) = planCalculateRechargeExpiry($newPlan, $d['customer_id'], $startDate, $startTime);
+            }
             $d->expiration = $expiration;
             $d->time = $time;
             if (!empty($recharged_on)) {
@@ -481,17 +576,19 @@ switch ($action) {
             }
             
             // Check for date/time changes
-            $oldExpiration = $d['expiration'];
-            $oldTime = $d['time'];
             if ($oldExpiration != $expiration || $oldTime != $time) {
                 $changes[] = "Date/Time: " . ($oldExpiration . ' ' . $oldTime) . " → " . ($expiration . ' ' . $time);
             }
             
             // Check for recharged_on change
-            $oldRechargedOn = $d['recharged_on'];
-            $newRechargedOn = $recharged_on;
+            $newRechargedOn = !empty($recharged_on) ? $recharged_on : $oldRechargedOn;
             if (!empty($newRechargedOn) && $oldRechargedOn != $newRechargedOn) {
                 $changes[] = "Recharge Date: " . $oldRechargedOn . " → " . $newRechargedOn;
+            }
+
+            $newRechargedTime = !empty($recharged_time) ? $recharged_time : $oldRechargedTime;
+            if (!empty($newRechargedTime) && $oldRechargedTime != $newRechargedTime) {
+                $changes[] = "Recharge Time: " . $oldRechargedTime . " → " . $newRechargedTime;
             }
             
             if (!empty($changes)) {
@@ -1234,6 +1331,7 @@ switch ($action) {
         $planDevices       = [];
         $planIds           = [];
         foreach ($d as $row) {
+            list($row['transaction_created_date'], $row['transaction_created_time']) = planTransactionCreatedParts($row['transaction_created_at'], $row['recharged_on'], $row['recharged_time']);
             $planIds[] = $row['plan_id'];
         }
         $planIds = array_unique(array_filter($planIds, function ($v) {

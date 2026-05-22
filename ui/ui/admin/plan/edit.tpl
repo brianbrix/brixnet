@@ -37,11 +37,11 @@
                         <label class="col-md-2 control-label">{Lang::T('Created On')}</label>
                         <div class="col-md-4">
                             <input type="date" class="form-control" readonly
-                                value="{if $d['transaction_created_at']}{date('Y-m-d', strtotime($d['transaction_created_at']))}{else}{$d['recharged_on']}{/if}">
+                                value="{$created_on_date}">
                         </div>
                         <div class="col-md-2">
                             <input type="text" class="form-control" placeholder="00:00:00" readonly
-                                value="{if $d['transaction_created_at']}{date('H:i', strtotime($d['transaction_created_at']))}{else}{$d['recharged_time']}{/if}">
+                                value="{$created_on_time}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -82,15 +82,44 @@
 <script>
 $(function() {
     var planData = {$plan_data_json};
-    var periodDayExp = {$period_day_exp};
+    var customerPeriodDayExp = {$customer_period_day_exp};
     var planMap = {};
     $.each(planData, function(i, p) { planMap[p.id] = p; });
 
-    $('#id_plan').on('change', function() {
-        var plan = planMap[$(this).val()];
-        if (!plan) return;
+    function normalizeTime(value) {
+        if (!value) {
+            return '00:00:00';
+        }
+        return /^\d{2}:\d{2}$/.test(value) ? value + ':00' : value;
+    }
 
-        var exp = new Date();
+    function dayExpForPlan(plan) {
+        if (customerPeriodDayExp) {
+            return customerPeriodDayExp;
+        }
+        if (plan.prepaid === 'no' && plan.expired_date) {
+            return plan.expired_date;
+        }
+        return 20;
+    }
+
+    function applyPlanWindow() {
+        var plan = planMap[$('#id_plan').val()];
+        if (!plan) {
+            return;
+        }
+
+        var startDate = $('#recharged_on').val();
+        var startTime = normalizeTime($('#recharged_time').val());
+        if (!startDate) {
+            return;
+        }
+
+        var exp = new Date(startDate + 'T' + startTime);
+        if (Number.isNaN(exp.getTime())) {
+            return;
+        }
+
         switch (plan.validity_unit) {
             case 'Days':
                 exp.setDate(exp.getDate() + plan.validity);
@@ -100,7 +129,7 @@ $(function() {
                 break;
             case 'Period':
                 exp.setMonth(exp.getMonth() + plan.validity);
-                exp.setDate(periodDayExp);
+                exp.setDate(dayExpForPlan(plan));
                 exp.setHours(23, 59, 0, 0);
                 break;
             case 'Hrs':
@@ -115,10 +144,10 @@ $(function() {
         $('#expiration').val(
             exp.getFullYear() + '-' + pad(exp.getMonth() + 1) + '-' + pad(exp.getDate())
         );
-        if (plan.validity_unit === 'Hrs' || plan.validity_unit === 'Mins' || plan.validity_unit === 'Period') {
-            $('#time').val(pad(exp.getHours()) + ':' + pad(exp.getMinutes()) + ':' + pad(exp.getSeconds()));
-        }
-    });
+        $('#time').val(pad(exp.getHours()) + ':' + pad(exp.getMinutes()) + ':' + pad(exp.getSeconds()));
+    }
+
+    $('#id_plan, #recharged_on, #recharged_time').on('change', applyPlanWindow);
 });
 </script>
 
