@@ -142,6 +142,10 @@
                                                 onclick="return ask(this, '{Lang::T("Delete")}?')"
                                                 class="btn btn-danger btn-xs"><i class="glyphicon glyphicon-trash"></i></a>
                                         {/if}
+                                        {if $ds['status']=='on' && !$ds['is_paused'] && $ds['customer_id'] != '0' && in_array($_admin['user_type'],['SuperAdmin','Admin'])}
+                                            <button type="button" class="btn btn-warning btn-xs"
+                                                onclick="pausePlanModal('{$ds['customer_id']}', '{$ds['id']}', '{$ds['namebp']|escape:'javascript'}')">{Lang::T('Pause')}</button>
+                                        {/if}
                                         {if $ds['status']=='on' && $ds['is_paused'] && $ds['customer_id'] != '0' && in_array($_admin['user_type'],['SuperAdmin','Admin'])}
                                             <a href="{Text::url('customers/resume-plan/', $ds['customer_id'],'/',$ds['id'], '&token=', $csrf_token)}"
                                                 class="btn btn-info btn-xs"
@@ -163,6 +167,34 @@
     </div>
 </div>
 
+<div class="modal fade" id="pausePlanModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">{Lang::T('Pause Plan')}</h4>
+            </div>
+            <form id="pausePlanForm" method="post">
+                <div class="modal-body">
+                    <p>{Lang::T('You are about to pause the plan')}: <strong id="pausePlanName"></strong></p>
+                    <p>{Lang::T('The customer will not be able to access the internet until the plan is resumed.')}</p>
+
+                    <div class="form-group">
+                        <label for="pauseReason">{Lang::T('Reason for Pause')} ({Lang::T('optional')})</label>
+                        <textarea class="form-control" id="pauseReason" name="pause_reason" rows="3" placeholder="e.g., Payment pending, Request from customer"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{Lang::T('Cancel')}</button>
+                    <button type="submit" class="btn btn-warning">{Lang::T('Pause Plan')}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     function extend(idP) {
         var res = prompt("Extend for many days?", "3");
@@ -171,6 +203,16 @@
                 window.location.href = "{Text::url('plan/extend/')}" + idP + "/" + res + "{Text::isQA('? or &')}stoken={App::getToken()}";
             }
         }
+    }
+
+    function pausePlanModal(customerId, rechargeId, planName) {
+        document.getElementById('pausePlanName').textContent = planName;
+        document.getElementById('pauseReason').value = '';
+
+        var form = document.getElementById('pausePlanForm');
+        form.action = "{Text::url('customers/pause-plan')}/" + customerId + "/" + rechargeId + "&token={$csrf_token}";
+
+        $('#pausePlanModal').modal('show');
     }
 </script>
 
